@@ -7,6 +7,7 @@ export interface ContentItem {
   type: 'pillar' | 'cluster' | 'single' | 'refresh';
   status: 'pending' | 'generating' | 'completed' | 'error';
   primaryKeyword: string;
+  url?: string;  // Source URL for rewrites
   content?: string;
   wordCount?: number;
   error?: string;

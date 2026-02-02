@@ -45,7 +45,57 @@ export function ContentStrategy() {
   const [crawledUrls, setCrawledUrls] = useState<string[]>([]);
   const [crawlFoundCount, setCrawlFoundCount] = useState(0);
   const [crawlStatus, setCrawlStatus] = useState<string>("");
+  const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
   const crawlRunIdRef = useRef(0);
+
+  // Filter to keep only blog post URLs (exclude images, feeds, categories, tags, etc.)
+  const filterBlogPostUrls = (urls: string[]): string[] => {
+    const excludePatterns = [
+      /\/wp-content\//i,
+      /\/wp-includes\//i,
+      /\/wp-admin\//i,
+      /\/feed\/?$/i,
+      /\/rss\/?$/i,
+      /\/atom\/?$/i,
+      /\/category\//i,
+      /\/tag\//i,
+      /\/author\//i,
+      /\/page\/\d+/i,
+      /\/attachment\//i,
+      /\/trackback\/?$/i,
+      /\.(jpg|jpeg|png|gif|webp|svg|ico|pdf|zip|mp3|mp4|avi|mov)$/i,
+      /\/sitemap[^/]*\.xml/i,
+      /\/robots\.txt$/i,
+      /\/favicon/i,
+      /\/cdn-cgi\//i,
+      /\/cart\/?$/i,
+      /\/checkout\/?$/i,
+      /\/my-account\/?$/i,
+      /\/privacy-policy\/?$/i,
+      /\/terms/i,
+      /\/contact\/?$/i,
+      /\/about\/?$/i,
+      /\/search\/?/i,
+      /\?/,  // exclude URLs with query params
+    ];
+    
+    return urls.filter(url => {
+      // Must have a path beyond just the domain
+      try {
+        const parsed = new URL(url);
+        const path = parsed.pathname;
+        // Skip homepage
+        if (path === '/' || path === '') return false;
+        // Skip if matches any exclude pattern
+        for (const pattern of excludePatterns) {
+          if (pattern.test(url)) return false;
+        }
+        return true;
+      } catch {
+        return false;
+      }
+    });
+  };
 
   const fetchSitemapText = async (targetUrl: string): Promise<string> => {
     const trimmed = targetUrl.trim();
@@ -129,6 +179,7 @@ export function ContentStrategy() {
     setCrawledUrls([]);
     setCrawlFoundCount(0);
     setCrawlStatus("Starting…");
+    setSelectedUrls(new Set());
 
     try {
       const allUrls = await crawlSitemapUrls(sitemapUrl.trim(), fetchSitemapText, {
@@ -142,10 +193,10 @@ export function ContentStrategy() {
         },
         onUrlsBatch: (batch) => {
           if (crawlRunIdRef.current !== runId) return;
+          const filtered = filterBlogPostUrls(batch);
           setCrawledUrls((prev) => {
-            if (prev.length >= 50) return prev;
-            const merged = [...prev, ...batch];
-            return Array.from(new Set(merged)).slice(0, 50);
+            const merged = [...prev, ...filtered];
+            return Array.from(new Set(merged));
           });
         },
       });
@@ -156,18 +207,62 @@ export function ContentStrategy() {
 
       if (crawlRunIdRef.current !== runId) return;
 
-      // Keep the UI snappy: store only a preview list here (full list is stored in the global store).
-      setCrawledUrls(allUrls.slice(0, 50));
-      setSitemapUrls(allUrls);
-      setCrawlFoundCount(allUrls.length);
-      setCrawlStatus(`Done • ${allUrls.length.toLocaleString()} URLs`);
-      toast.success(`Found ${allUrls.length} URLs across sitemap(s)!`);
+      // Filter to blog posts only
+      const blogPostUrls = filterBlogPostUrls(allUrls);
+      setCrawledUrls(blogPostUrls);
+      setSitemapUrls(blogPostUrls);
+      setCrawlFoundCount(blogPostUrls.length);
+      setCrawlStatus(`Done • ${blogPostUrls.length.toLocaleString()} blog posts (filtered from ${allUrls.length.toLocaleString()} total)`);
+      toast.success(`Found ${blogPostUrls.length} blog post URLs!`);
     } catch (error) {
       console.error("[Sitemap] Crawl error:", error);
       toast.error(error instanceof Error ? error.message : "Failed to crawl sitemap");
     } finally {
       setIsCrawling(false);
     }
+  };
+
+  const toggleUrlSelection = (url: string) => {
+    setSelectedUrls(prev => {
+      const next = new Set(prev);
+      if (next.has(url)) {
+        next.delete(url);
+      } else {
+        next.add(url);
+      }
+      return next;
+    });
+  };
+
+  const selectAllUrls = () => {
+    setSelectedUrls(new Set(crawledUrls));
+  };
+
+  const deselectAllUrls = () => {
+    setSelectedUrls(new Set());
+  };
+
+  const handleAddSelectedToRewrite = () => {
+    if (selectedUrls.size === 0) return;
+    
+    selectedUrls.forEach(url => {
+      // Extract a title from the URL
+      const urlPath = new URL(url).pathname;
+      const slug = urlPath.split('/').filter(Boolean).pop() || 'untitled';
+      const title = slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      
+      addContentItem({
+        title: `Rewrite: ${title}`,
+        type: 'refresh',
+        status: 'pending',
+        primaryKeyword: title.toLowerCase(),
+        url: url,
+      });
+    });
+    
+    toast.success(`Added ${selectedUrls.size} URLs to rewrite queue!`);
+    setSelectedUrls(new Set());
+    setCurrentStep(3);
   };
 
   return (
@@ -512,25 +607,62 @@ export function ContentStrategy() {
               <div className="text-xs text-muted-foreground">{crawlStatus}</div>
             )}
 
-            {/* Show crawled URLs */}
+            {/* Show crawled URLs with checkboxes */}
             {(crawledUrls.length > 0 || crawlFoundCount > 0) && (
               <div className="mt-4 p-4 bg-muted/50 rounded-xl">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-3">
                   <h4 className="font-medium text-foreground">
-                    ✅ Found {(crawlFoundCount || crawledUrls.length).toLocaleString()} URLs
+                    ✅ Found {crawledUrls.length.toLocaleString()} Blog Posts
                   </h4>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={selectAllUrls}
+                      className="px-3 py-1 text-xs bg-primary/20 text-primary rounded-lg hover:bg-primary/30"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      onClick={deselectAllUrls}
+                      className="px-3 py-1 text-xs bg-muted text-muted-foreground rounded-lg hover:bg-muted/80"
+                    >
+                      Deselect All
+                    </button>
+                  </div>
                 </div>
-                <div className="max-h-48 overflow-y-auto space-y-1">
-                  {crawledUrls.slice(0, 50).map((url, idx) => (
-                    <div key={idx} className="text-sm text-muted-foreground truncate">
-                      {url}
-                    </div>
+                
+                {selectedUrls.size > 0 && (
+                  <div className="mb-3 flex items-center justify-between bg-primary/10 border border-primary/30 rounded-lg px-3 py-2">
+                    <span className="text-sm text-primary font-medium">
+                      {selectedUrls.size} URL{selectedUrls.size !== 1 ? 's' : ''} selected
+                    </span>
+                    <button
+                      onClick={handleAddSelectedToRewrite}
+                      className="px-4 py-1.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add to Rewrite Queue
+                    </button>
+                  </div>
+                )}
+                
+                <div className="max-h-64 overflow-y-auto space-y-1">
+                  {crawledUrls.map((url, idx) => (
+                    <label
+                      key={idx}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors",
+                        selectedUrls.has(url) ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50"
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedUrls.has(url)}
+                        onChange={() => toggleUrlSelection(url)}
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary/50"
+                      />
+                      <span className="text-sm text-foreground truncate flex-1">{url}</span>
+                    </label>
                   ))}
-                  {(crawlFoundCount || crawledUrls.length) > 50 && (
-                    <div className="text-sm text-muted-foreground italic">
-                      ... and {((crawlFoundCount || crawledUrls.length) - 50).toLocaleString()} more
-                    </div>
-                  )}
                 </div>
               </div>
             )}
