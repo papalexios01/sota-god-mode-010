@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
+import { getSupabaseAnonKey, getSupabaseUrl } from "@/integrations/supabase/client";
 
 const tabs = [
   { id: "bulk", label: "📚 Bulk Planner", icon: BookOpen },
@@ -95,18 +95,59 @@ export function ContentStrategy() {
     try {
       let xmlText: string;
 
-      // Try Supabase Edge Function first
-      if (isSupabaseConfigured()) {
-        console.log("[Sitemap] Using Supabase fetch-sitemap function");
-        const { data, error } = await supabase.functions.invoke("fetch-sitemap", {
-          body: { url: sitemapUrl.trim() },
-        });
+      const supabaseUrl = getSupabaseUrl();
+      const supabaseAnonKey = getSupabaseAnonKey();
 
-        if (error) {
-          throw new Error(error.message || "Failed to fetch sitemap via Supabase");
+      // Prefer calling the Supabase Edge Function directly.
+      // This avoids supabase-js adding extra headers that can break CORS if the function's
+      // Access-Control-Allow-Headers isn't exhaustive.
+      if (supabaseUrl && supabaseAnonKey) {
+        const fnUrl = `${supabaseUrl.replace(/\/$/, "")}/functions/v1/fetch-sitemap?url=${encodeURIComponent(
+          sitemapUrl.trim()
+        )}`;
+
+        console.log("[Sitemap] Fetching via Supabase Edge Function:", fnUrl);
+
+        let respText = "";
+        try {
+          const resp = await fetch(fnUrl, {
+            method: "GET",
+            headers: {
+              apikey: supabaseAnonKey,
+              Authorization: `Bearer ${supabaseAnonKey}`,
+            },
+          });
+
+          respText = await resp.text();
+
+          if (!resp.ok) {
+            if (resp.status === 404) {
+              throw new Error(
+                "Supabase Edge Function 'fetch-sitemap' is not deployed in your Supabase project."
+              );
+            }
+            throw new Error(
+              `Supabase fetch-sitemap failed (${resp.status}): ${respText.slice(0, 200)}`
+            );
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          // If this is a browser-level failure, it's almost always CORS or a missing function.
+          if (msg.toLowerCase().includes("failed to fetch")) {
+            throw new Error(
+              "Failed to reach Supabase Edge Function fetch-sitemap (CORS or not deployed)."
+            );
+          }
+          throw e;
         }
 
-        xmlText = data?.content || data;
+        // If the function returned JSON, extract 'content'; otherwise treat response as raw XML/text.
+        try {
+          const maybeJson = JSON.parse(respText);
+          xmlText = maybeJson?.content ?? maybeJson;
+        } catch {
+          xmlText = respText;
+        }
       } else {
         // Try Cloudflare proxy
         console.log("[Sitemap] Trying Cloudflare proxy");
