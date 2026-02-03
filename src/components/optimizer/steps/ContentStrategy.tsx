@@ -8,7 +8,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { getSupabaseAnonKey, getSupabaseUrl } from "@/integrations/supabase/client";
-import { crawlSitemapUrls } from "@/lib/sitemap/crawlSitemap";
+import { crawlSitemapUrls, type SitemapCrawlProgress } from "@/lib/sitemap/crawlSitemap";
 
 const tabs = [
   { id: "bulk", label: "📚 Bulk Planner", icon: BookOpen },
@@ -327,7 +327,8 @@ export function ContentStrategy() {
       const crawlOptions = {
         // Lower concurrency improves reliability when a site has many child sitemaps or slow generation.
         concurrency: 4,
-        onProgress: (p: any) => {
+        fetchTimeoutMs: 70000,
+        onProgress: (p: SitemapCrawlProgress) => {
           if (crawlRunIdRef.current !== runId) return;
           setCrawlFoundCount(p.discoveredUrls);
           setCrawlStatus(

@@ -9,6 +9,8 @@ export type CrawlSitemapOptions = {
   concurrency?: number;
   maxSitemaps?: number;
   maxUrls?: number;
+  /** Hard cap per-sitemap fetch+parse time (ms). Prevents a single slow sitemap from stalling the whole crawl. */
+  fetchTimeoutMs?: number;
   onProgress?: (p: SitemapCrawlProgress) => void;
   onUrlsBatch?: (newUrls: string[]) => void;
 };
@@ -110,6 +112,19 @@ export async function crawlSitemapUrls(
   const concurrency = Math.max(1, Math.min(options.concurrency ?? 8, 20));
   const maxSitemaps = options.maxSitemaps ?? 5000;
   const maxUrls = options.maxUrls ?? 500000;
+  const fetchTimeoutMs = Math.max(5000, options.fetchTimeoutMs ?? 70000);
+
+  const withHardTimeout = async <T>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
+    let timeoutId: number | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = window.setTimeout(() => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)), ms);
+    });
+    try {
+      return await Promise.race([promise, timeout]);
+    } finally {
+      if (timeoutId) window.clearTimeout(timeoutId);
+    }
+  };
 
   const pending: string[] = [normalizeUrl(entrySitemapUrl)];
   const visitedSitemaps = new Set<string>();
@@ -148,13 +163,25 @@ export async function crawlSitemapUrls(
         emitProgress(sitemap);
 
         try {
-          const rawText = await fetchSitemapXml(sitemap);
+          const rawText = await withHardTimeout(fetchSitemapXml(sitemap), fetchTimeoutMs, "Sitemap fetch");
           const xmlDoc = safeParseXml(rawText);
           const kind = getSitemapKind(xmlDoc);
           const locs = extractLocs(xmlDoc, rawText);
 
           if (kind === "index") {
-            for (const loc of locs) {
+            // ✅ Enterprise performance: prioritize likely post/blog sitemaps and skip obviously irrelevant ones
+            // (e.g., video/image/news) to avoid spending minutes crawling giant media sitemaps.
+            const hasPostLike = locs.some((u) => /(?:^|\/)(?:post|posts|blog)[-_]?sitemap\.xml\b/i.test(u));
+            const preferred = hasPostLike
+              ? locs.filter((u) => /(?:^|\/)(?:post|posts|blog)[-_]?sitemap\.xml\b/i.test(u))
+              : locs;
+
+            const filtered = preferred.filter(
+              (u) => !/(?:^|\/)(?:video|image|news|author|tag|category|attachment|media)[\w.-]*sitemap\.xml\b/i.test(u)
+            );
+            const toQueue = filtered.length > 0 ? filtered : preferred;
+
+            for (const loc of toQueue) {
               if (visitedSitemaps.has(loc)) continue;
               pending.push(loc);
             }
