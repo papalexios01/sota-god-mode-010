@@ -9,18 +9,19 @@ import {
   ChevronLeft, ChevronRight, Maximize2, Minimize2,
   BookOpen, Clock, Target, Zap, Award, Eye, EyeOff,
   TrendingUp, CheckCircle, AlertTriangle, Brain,
-  Hash, List, Type, ArrowRight
+  Hash, List, Type, ArrowRight, Upload, Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ContentItem } from '@/lib/store';
 import type { GeneratedContent, NeuronWriterAnalysis } from '@/lib/sota';
+import { useWordPressPublish } from '@/hooks/useWordPressPublish';
+import { toast } from 'sonner';
 
 interface ContentViewerPanelProps {
   item: ContentItem | null;
   generatedContent?: GeneratedContent | null;
   neuronData?: NeuronWriterAnalysis | null;
   onClose: () => void;
-  onPublish?: () => void;
   onPrevious?: () => void;
   onNext?: () => void;
   hasPrevious?: boolean;
@@ -34,7 +35,6 @@ export function ContentViewerPanel({
   generatedContent,
   neuronData,
   onClose, 
-  onPublish,
   onPrevious,
   onNext,
   hasPrevious,
@@ -44,6 +44,10 @@ export function ContentViewerPanel({
   const [copied, setCopied] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(true);
   const [showRawHtml, setShowRawHtml] = useState(false);
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [publishStatus, setPublishStatus] = useState<'draft' | 'publish'>('draft');
+  
+  const { publish, isPublishing, publishResult, clearResult, isConfigured } = useWordPressPublish();
 
   if (!item) return null;
 
@@ -88,6 +92,39 @@ export function ContentViewerPanel({
     a.download = `${item.title.toLowerCase().replace(/\s+/g, '-')}.html`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handlePublishToWordPress = async () => {
+    if (!item || !content) return;
+    
+    const result = await publish(
+      item.title,
+      content,
+      {
+        status: publishStatus,
+        slug: generatedContent?.slug,
+        metaDescription: generatedContent?.metaDescription,
+        excerpt: generatedContent?.metaDescription,
+      }
+    );
+
+    if (result.success) {
+      toast.success(
+        `Published to WordPress as ${publishStatus}!`,
+        {
+          description: result.postUrl ? `Post ID: ${result.postId}` : undefined,
+          action: result.postUrl ? {
+            label: 'View Post',
+            onClick: () => window.open(result.postUrl, '_blank'),
+          } : undefined,
+        }
+      );
+      setShowPublishModal(false);
+    } else {
+      toast.error('Failed to publish', {
+        description: result.error,
+      });
+    }
   };
 
   const tabs: { id: ViewTab; label: string; icon: React.ReactNode; badge?: number }[] = [
@@ -182,16 +219,15 @@ export function ContentViewerPanel({
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Download</span>
           </button>
-          {onPublish && (
-            <button
-              onClick={onPublish}
-              disabled={!hasContent}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-all disabled:opacity-30"
-            >
-              <ExternalLink className="w-4 h-4" />
-              Publish to WP
-            </button>
-          )}
+          <button
+            onClick={() => setShowPublishModal(true)}
+            disabled={!hasContent}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-all disabled:opacity-30"
+            title={isConfigured ? 'Publish to WordPress' : 'Configure WordPress in Setup first'}
+          >
+            <Upload className="w-4 h-4" />
+            Publish to WP
+          </button>
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
             className="p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted/50 transition-all"
@@ -711,6 +747,120 @@ export function ContentViewerPanel({
           </>
         )}
       </div>
+
+      {/* WordPress Publish Modal */}
+      {showPublishModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-md p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
+                <Upload className="w-5 h-5 text-primary" />
+                Publish to WordPress
+              </h3>
+              <button
+                onClick={() => setShowPublishModal(false)}
+                className="p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted/50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {!isConfigured ? (
+              <div className="text-center py-8">
+                <AlertTriangle className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+                <h4 className="text-lg font-semibold text-foreground mb-2">WordPress Not Configured</h4>
+                <p className="text-muted-foreground mb-4">
+                  Add your WordPress URL, username, and application password in the Setup tab to enable publishing.
+                </p>
+                <button
+                  onClick={() => setShowPublishModal(false)}
+                  className="px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-muted/80"
+                >
+                  Close
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Post Title
+                    </label>
+                    <div className="px-4 py-3 bg-muted/30 border border-border rounded-xl text-foreground">
+                      {item.title}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Publish Status
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setPublishStatus('draft')}
+                        className={cn(
+                          "flex-1 px-4 py-3 rounded-xl font-medium transition-all border",
+                          publishStatus === 'draft'
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50"
+                        )}
+                      >
+                        📝 Draft
+                      </button>
+                      <button
+                        onClick={() => setPublishStatus('publish')}
+                        className={cn(
+                          "flex-1 px-4 py-3 rounded-xl font-medium transition-all border",
+                          publishStatus === 'publish'
+                            ? "bg-green-600 text-white border-green-600"
+                            : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50"
+                        )}
+                      >
+                        🚀 Publish
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-muted/20 border border-border rounded-xl">
+                    <h4 className="text-sm font-medium text-foreground mb-2">What will be published:</h4>
+                    <ul className="text-sm text-muted-foreground space-y-1">
+                      <li>• Full HTML content ({wordCount.toLocaleString()} words)</li>
+                      <li>• SEO meta description</li>
+                      <li>• URL slug: /{generatedContent?.slug || item.title.toLowerCase().replace(/\s+/g, '-')}</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowPublishModal(false)}
+                    className="flex-1 px-4 py-3 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handlePublishToWordPress}
+                    disabled={isPublishing}
+                    className="flex-1 px-4 py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isPublishing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Publishing...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4" />
+                        {publishStatus === 'draft' ? 'Save as Draft' : 'Publish Now'}
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -723,9 +873,12 @@ function QualityMetric({ label, value }: { label: string; value: number }) {
     return 'text-red-400';
   };
 
+  // Format to 1 decimal place
+  const formattedValue = Number.isInteger(value) ? value : value.toFixed(1);
+
   return (
     <div className="text-center">
-      <div className={cn("text-3xl font-bold", getColor(value))}>{value}%</div>
+      <div className={cn("text-3xl font-bold", getColor(value))}>{formattedValue}%</div>
       <div className="text-sm text-muted-foreground mt-1">{label}</div>
     </div>
   );
@@ -827,7 +980,8 @@ function KeywordDensityIndicator({ content, keyword }: { content: string; keywor
   const regex = new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
   const matches = content.match(regex);
   const count = matches?.length || 0;
-  const density = words > 0 ? ((count / words) * 100).toFixed(2) : '0';
+  // Format to 1 decimal place for cleaner display
+  const density = words > 0 ? ((count / words) * 100).toFixed(1) : '0';
   const isGood = parseFloat(density) >= 0.5 && parseFloat(density) <= 2.5;
 
   return (

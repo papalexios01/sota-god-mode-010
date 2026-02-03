@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.fetch-sitemap]
 verify_jwt = false
+
+[functions.wordpress-publish]
+verify_jwt = false

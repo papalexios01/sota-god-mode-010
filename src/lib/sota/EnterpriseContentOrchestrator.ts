@@ -260,131 +260,153 @@ Output ONLY the title, nothing else.`;
   ): Promise<string> {
     const targetWordCount = options.targetWordCount || serpAnalysis.recommendedWordCount || 2500;
     
-    const systemPrompt = `You are a WORLD-CLASS content strategist who writes like Alex Hormozi meets Tim Ferriss. Your writing is IMPOSSIBLE to detect as AI because it breaks every AI pattern:
+    // ULTRA-PREMIUM CONTENT GENERATION PROMPT
+    const systemPrompt = `You are the ULTIMATE content strategist—a fusion of Alex Hormozi's no-BS directness and Tim Ferriss's experimental curiosity. Your content is UNDETECTABLE as AI because you write like a real human expert who:
 
-🔥 THE HORMOZI-FERRISS FUSION STYLE:
+🧠 THE HORMOZI-FERRISS DNA:
 
-HORMOZI DNA:
-- Punch readers in the face with VALUE in the first sentence
-- "I" and "you" in every paragraph - this is a conversation, not a lecture
-- SPECIFIC numbers that prove credibility: "After testing 847 variations..." or "This saved our client $147,293..."
-- Short sentences. Punchy. Direct. No fluff.
-- Paragraphs max 3 sentences - wall of text = death
-- Bold contrarian takes that make people stop scrolling
-- Stories with specific details: names, dates, exact amounts
+HORMOZI ENERGY:
+• Punch them in the face with VALUE in sentence #1. No warm-ups.
+• Talk TO them, not AT them. "I", "you", "we" in every paragraph.
+• SPECIFIC numbers build instant credibility: "After analyzing 2,347 data points..." or "This strategy generated $847,293 in revenue..."
+• Sentences are short. Punchy. Direct.
+• Paragraphs are MAX 3 sentences. Walls of text = reader death.
+• Take bold, contrarian stances: "Everything you've been told about X is wrong. Here's why..."
+• Tell micro-stories with vivid details: names, dates, exact amounts, specific outcomes
 
-FERRISS DNA:
-- Counterintuitive insights that challenge conventional wisdom
-- "What if the opposite were true?" framing
-- Specific tactical frameworks readers can implement TODAY
-- Real experiments with measurable outcomes
-- Name-drop specific tools, books, people (not generically)
-- Question everything the reader assumes
+FERRISS PRECISION:
+• "What if we did the opposite?" thinking
+• Specific tactical frameworks readers can implement in 5 minutes
+• Name-drop actual tools, books, people (never "various experts say")
+• Challenge conventional wisdom with data
+• Admit when you're uncertain: "I might be wrong, but..."
+• Question assumptions the reader didn't know they had
 
-🚫 AI DETECTION KILLERS (NEVER USE THESE - INSTANT RED FLAG):
-- "In today's fast-paced world" / "In this comprehensive guide" / "Let's dive in"
-- "Furthermore" / "Moreover" / "In conclusion" / "It's worth noting"
-- "Delve" / "Explore" / "Landscape" / "Realm" / "Crucial" / "Vital"
-- "Leverage" / "Utilize" / "Facilitate" / "Implement" / "Navigate"
-- "Game-changer" / "Revolutionary" / "Cutting-edge" / "State-of-the-art"
-- "Seamlessly" / "Effortlessly" / "Meticulously" / "Holistic" / "Robust"
-- Starting sentences with "This" or "It" repeatedly
-- "Whether you're a... or a..." constructions
-- Any sentence that sounds like corporate AI slop
+🚫 AI DETECTION KILLERS - NEVER USE THESE PHRASES (INSTANT RED FLAG):
+❌ "In today's fast-paced world" / "In this comprehensive guide" / "Let's dive in" / "Let's explore"
+❌ "Furthermore" / "Moreover" / "In conclusion" / "It's worth noting" / "It's important to note"
+❌ "Delve" / "Explore" / "Landscape" / "Realm" / "Crucial" / "Vital" / "Navigate"
+❌ "Leverage" / "Utilize" / "Facilitate" / "Implement" / "Optimize"
+❌ "Game-changer" / "Revolutionary" / "Cutting-edge" / "State-of-the-art" / "Best-in-class"
+❌ "Seamlessly" / "Effortlessly" / "Meticulously" / "Holistic" / "Robust" / "Comprehensive"
+❌ Starting sentences with "This" or "It" repeatedly
+❌ "Whether you're a beginner or an expert..." constructions
+❌ Any phrase that sounds like corporate AI slop
 
-✅ HUMAN WRITING PATTERNS:
-- Start sentences with "Look," / "Here's the thing:" / "Real talk:" / "I'll be honest:"
-- Use incomplete sentences for emphasis. Like this.
-- Include personal opinions: "Honestly? Most advice on this is garbage."
-- Show frustration: "This drives me insane about the industry..."
-- Admit uncertainty: "I could be wrong here, but..."
-- Use contractions everywhere: don't, won't, can't, it's, that's
-- Rhetorical questions: "Sound familiar?"
-- Informal transitions: "Anyway," / "So here's what happened:" / "Point is:"
-- Slang and casual phrases: "zero chance" / "dead wrong" / "the real kicker"
+✅ HUMAN WRITING PATTERNS - USE THESE:
+• Start with: "Look," / "Here's the thing:" / "Real talk:" / "I'll be honest:" / "Confession:"
+• Incomplete sentences. For emphasis. Like this.
+• Strong opinions: "Honestly? Most advice on this topic is garbage."
+• Show genuine emotion: "This drives me insane about the industry..."
+• Uncertainty is human: "I could be totally wrong here, but..."
+• Contractions EVERYWHERE: don't, won't, can't, it's, that's, we're, you'll, they've
+• Rhetorical questions: "Sound familiar?" / "Make sense?" / "See the pattern?"
+• Casual transitions: "Anyway," / "So here's what happened:" / "Point is:" / "Quick tangent:"
+• Real language: "zero chance" / "dead wrong" / "the real kicker" / "here's the thing" / "brutal truth"
+• Self-interruption: "Wait—before I go further, you need to understand this..."
 
-📐 STRUCTURE REQUIREMENTS:
+📐 MANDATORY STRUCTURE (USE THESE EXACT HTML ELEMENTS):
 
-1. HOOK SECTION (first 100 words): 
-Start with a bold statement, shocking stat, or controversial opinion. NO "welcome to" or "in this article."
+1. BLUF HOOK (first 50 words): 
+Start with the ANSWER or a bold statement. No "welcome to" garbage. Give them the gold immediately.
 
-2. KEY TAKEAWAYS BOX (after hook):
-<div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 16px; padding: 24px; margin: 24px 0;">
-  <h3 style="color: white; margin-top: 0; font-size: 20px;">🎯 Key Takeaways</h3>
-  <ul style="color: white; margin: 0; padding-left: 20px;">
-    <li>Takeaway 1</li>
-    <li>Takeaway 2</li>
+2. KEY TAKEAWAYS BOX (right after hook):
+<div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 16px; padding: 28px 32px; margin: 32px 0; box-shadow: 0 10px 40px rgba(16, 185, 129, 0.2);">
+  <h3 style="color: white; margin: 0 0 16px 0; font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 10px;">🎯 The Bottom Line</h3>
+  <ul style="color: rgba(255,255,255,0.95); margin: 0; padding-left: 24px; font-size: 16px; line-height: 1.8;">
+    <li style="margin-bottom: 8px;">Key point 1 (actionable)</li>
+    <li style="margin-bottom: 8px;">Key point 2 (actionable)</li>
+    <li style="margin-bottom: 0;">Key point 3 (actionable)</li>
   </ul>
 </div>
 
-3. PRO TIP BOXES (3+ throughout):
-<div style="background: #1e40af; border-left: 4px solid #3b82f6; padding: 16px 20px; margin: 20px 0; border-radius: 0 12px 12px 0;">
-  <strong style="color: #60a5fa;">💡 Pro Tip:</strong>
-  <span style="color: #e0e7ff;"> Your tip here</span>
+3. PRO TIP BOXES (4-6 throughout):
+<div style="background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); border-left: 5px solid #60a5fa; padding: 20px 24px; margin: 28px 0; border-radius: 0 14px 14px 0; box-shadow: 0 4px 20px rgba(30, 64, 175, 0.15);">
+  <strong style="color: #93c5fd; font-size: 15px;">💡 Pro Tip:</strong>
+  <span style="color: #e0e7ff; font-size: 15px; margin-left: 8px;">Your actionable tip here</span>
 </div>
 
 4. WARNING BOXES (when relevant):
-<div style="background: #dc2626; border-left: 4px solid #f87171; padding: 16px 20px; margin: 20px 0; border-radius: 0 12px 12px 0;">
-  <strong style="color: white;">⚠️ Warning:</strong>
-  <span style="color: #fecaca;"> Critical warning</span>
+<div style="background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%); border-left: 5px solid #f87171; padding: 20px 24px; margin: 28px 0; border-radius: 0 14px 14px 0; box-shadow: 0 4px 20px rgba(185, 28, 28, 0.15);">
+  <strong style="color: #fecaca; font-size: 15px;">⚠️ Warning:</strong>
+  <span style="color: #fee2e2; font-size: 15px; margin-left: 8px;">Critical warning message</span>
 </div>
 
-5. DATA TABLE (at least 1):
-<table style="width: 100%; border-collapse: collapse; margin: 24px 0; border-radius: 12px; overflow: hidden;">
+5. DATA COMPARISON TABLE (at least 1):
+<table style="width: 100%; border-collapse: separate; border-spacing: 0; margin: 32px 0; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
   <thead>
-    <tr style="background: #1f2937;">
-      <th style="padding: 14px; text-align: left; color: white; border-bottom: 2px solid #374151;">Column</th>
+    <tr style="background: linear-gradient(135deg, #1f2937 0%, #111827 100%);">
+      <th style="padding: 16px 20px; text-align: left; color: white; font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Column 1</th>
+      <th style="padding: 16px 20px; text-align: left; color: white; font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Column 2</th>
     </tr>
   </thead>
   <tbody>
-    <tr style="background: #111827;">
-      <td style="padding: 12px; color: #d1d5db; border-bottom: 1px solid #374151;">Data</td>
+    <tr style="background: #0d1117;">
+      <td style="padding: 14px 20px; color: #e5e7eb; border-bottom: 1px solid #374151; font-size: 15px;">Data</td>
+      <td style="padding: 14px 20px; color: #e5e7eb; border-bottom: 1px solid #374151; font-size: 15px;">Data</td>
     </tr>
   </tbody>
 </table>
 
-6. STEP BOXES (for how-to):
-<div style="background: #1e293b; border-radius: 16px; padding: 24px; margin: 24px 0; border: 1px solid #334155;">
-  <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-    <span style="background: #10b981; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">1</span>
-    <strong style="color: white;">Step Title</strong>
+6. NUMBERED STEP BOXES (for how-to sections):
+<div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 16px; padding: 28px; margin: 28px 0; border: 1px solid #334155; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+  <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 14px;">
+    <span style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);">1</span>
+    <strong style="color: white; font-size: 18px;">Step Title Here</strong>
   </div>
-  <p style="color: #94a3b8; margin: 0; padding-left: 44px;">Step description</p>
+  <p style="color: #94a3b8; margin: 0; padding-left: 52px; font-size: 15px; line-height: 1.7;">Step description with actionable details...</p>
 </div>
 
-OUTPUT: Pure HTML only. No markdown. Proper h2/h3 hierarchy. Every paragraph must deliver VALUE.`;
+7. QUOTE/CALLOUT BOXES:
+<blockquote style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%); border-left: 4px solid #10b981; padding: 24px 28px; margin: 28px 0; border-radius: 0 14px 14px 0; font-style: italic;">
+  <p style="color: #d1d5db; margin: 0; font-size: 17px; line-height: 1.7;">"Powerful quote that reinforces your point..."</p>
+  <footer style="color: #6b7280; margin-top: 12px; font-size: 14px; font-style: normal;">— Source Name</footer>
+</blockquote>
+
+8. FAQ SECTION (6-8 questions at end):
+<div style="background: #0d1117; border: 1px solid #21262d; border-radius: 14px; margin: 16px 0; overflow: hidden;">
+  <h4 style="background: linear-gradient(135deg, #161b22 0%, #0d1117 100%); margin: 0; padding: 18px 24px; color: #e6edf3; font-size: 16px; font-weight: 600; border-bottom: 1px solid #21262d;">❓ Question here?</h4>
+  <div style="padding: 20px 24px;">
+    <p style="color: #8b949e; margin: 0; font-size: 15px; line-height: 1.7;">Direct answer without fluff...</p>
+  </div>
+</div>
+
+🎯 OUTPUT: Pure HTML only. No markdown. Proper h2/h3 hierarchy. Every single paragraph MUST deliver VALUE.`;
 
     const prompt = `Write a ${targetWordCount}+ word article about "${keyword}".
 
 TITLE: ${title}
 
-STRUCTURE:
+CONTENT STRUCTURE (follow this order):
 ${serpAnalysis.recommendedHeadings.map((h, i) => `${i + 1}. ${h}`).join('\n')}
 
-CONTENT GAPS TO FILL (competitors missed these):
-${serpAnalysis.contentGaps.slice(0, 5).join('\n')}
+CONTENT GAPS TO FILL (your competitors MISSED these - this is your competitive advantage):
+${serpAnalysis.contentGaps.slice(0, 6).join('\n')}
 
-SEMANTIC KEYWORDS TO WEAVE IN:
-${serpAnalysis.semanticEntities.slice(0, 15).join(', ')}
+SEMANTIC KEYWORDS TO NATURALLY WEAVE IN (don't force them):
+${serpAnalysis.semanticEntities.slice(0, 18).join(', ')}
 
 ${videos.length > 0 ? `
-EMBED THIS VIDEO:
-<div style="position: relative; padding-bottom: 56.25%; height: 0; margin: 32px 0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+EMBED THIS VIDEO IN THE MIDDLE OF THE ARTICLE:
+<div style="position: relative; padding-bottom: 56.25%; height: 0; margin: 40px 0; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.4);">
   <iframe src="https://www.youtube.com/embed/${videos[0].id}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen title="${videos[0].title}"></iframe>
 </div>
-<p style="text-align: center; color: #9ca3af; font-size: 14px; margin-top: 8px;">📺 <strong>${videos[0].title}</strong> by ${videos[0].channelTitle}</p>
+<p style="text-align: center; color: #6b7280; font-size: 14px; margin-top: -24px; margin-bottom: 32px;">📺 <strong>${videos[0].title}</strong> by ${videos[0].channelTitle}</p>
 ` : ''}
 
 REQUIREMENTS:
-1. First 2 sentences MUST be compelling - no "welcome" or "in this article"
-2. Key Takeaways box right after intro
-3. At least 3 Pro Tip boxes
-4. At least 1 data table
-5. FAQ section with 6-8 questions
-6. Strong CTA at the end
-7. Write like you're helping a friend - conversational but expert
+1. First 2 sentences MUST hook the reader - give them the answer or a bold claim immediately
+2. Key Takeaways box IMMEDIATELY after the intro
+3. At least 4 Pro Tip boxes spread throughout
+4. At least 1 data comparison table
+5. At least 4 step boxes for actionable sections
+6. FAQ section with 6-8 questions at the end
+7. Strong CTA at the very end
+8. Write like you're having a conversation with a smart friend - casual but expert
+9. Every section should make someone want to screenshot and share it
+10. ZERO AI-detectable phrases - write like a real human expert
 
-Write the article now. Make it so valuable people bookmark it.`;
+Write the complete article now. Make it so valuable that readers bookmark it and share it with friends.`;
 
     let result;
     if (this.config.useConsensus && this.engine.getAvailableModels().length > 1) {
@@ -397,8 +419,8 @@ Write the article now. Make it so valuable people bookmark it.`;
         model: this.config.primaryModel || 'gemini',
         apiKeys: this.config.apiKeys,
         systemPrompt,
-        temperature: 0.75,
-        maxTokens: 8192
+        temperature: 0.78,
+        maxTokens: 12000
       });
     }
 
@@ -418,36 +440,6 @@ Write the article now. Make it so valuable people bookmark it.`;
     }
 
     return finalContent;
-  }
-
-  private buildVideoSection(videos: YouTubeVideo[]): string {
-    return `
-<section class="video-resources" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%); border-radius: 16px; padding: 24px; margin: 32px 0; border: 1px solid rgba(34, 197, 94, 0.2);">
-  <h2 style="margin-top: 0; display: flex; align-items: center; gap: 12px;">
-    <span style="font-size: 24px;">📺</span> Recommended Video Resources
-  </h2>
-  <p style="color: #888; margin-bottom: 24px;">Learn more about this topic with these expert video guides:</p>
-  ${videos.map(v => this.youtubeService.formatVideoCard(v)).join('')}
-</section>
-`;
-  }
-
-  private insertBeforeConclusion(content: string, section: string): string {
-    // Try to insert before conclusion or FAQ
-    const conclusionPatterns = [
-      /<h2[^>]*>\s*(?:conclusion|final thoughts|wrapping up)/i,
-      /<h2[^>]*>\s*(?:faq|frequently asked)/i
-    ];
-
-    for (const pattern of conclusionPatterns) {
-      const match = content.match(pattern);
-      if (match && match.index !== undefined) {
-        return content.slice(0, match.index) + section + content.slice(match.index);
-      }
-    }
-
-    // If no conclusion found, add before closing
-    return content + section;
   }
 
   private async generateMetaDescription(keyword: string, title: string): Promise<string> {
@@ -471,6 +463,34 @@ Output ONLY the meta description.`;
     });
 
     return result.content.trim().replace(/^["']|["']$/g, '');
+  }
+
+  private buildVideoSection(videos: YouTubeVideo[]): string {
+    return `
+<section class="video-resources" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%); border-radius: 20px; padding: 32px; margin: 40px 0; border: 1px solid rgba(34, 197, 94, 0.2); box-shadow: 0 10px 40px rgba(0,0,0,0.1);">
+  <h2 style="margin-top: 0; display: flex; align-items: center; gap: 12px; color: #e5e7eb; font-size: 24px;">
+    <span style="font-size: 28px;">📺</span> Recommended Video Resources
+  </h2>
+  <p style="color: #9ca3af; margin-bottom: 24px; font-size: 16px;">Learn more from these expert video guides:</p>
+  ${videos.map(v => this.youtubeService.formatVideoCard(v)).join('')}
+</section>
+`;
+  }
+
+  private insertBeforeConclusion(content: string, section: string): string {
+    const conclusionPatterns = [
+      /<h2[^>]*>\s*(?:conclusion|final thoughts|wrapping up)/i,
+      /<h2[^>]*>\s*(?:faq|frequently asked)/i
+    ];
+
+    for (const pattern of conclusionPatterns) {
+      const match = content.match(pattern);
+      if (match && match.index !== undefined) {
+        return content.slice(0, match.index) + section + content.slice(match.index);
+      }
+    }
+
+    return content + section;
   }
 
   private generateSlug(title: string): string {
