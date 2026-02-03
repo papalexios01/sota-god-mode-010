@@ -97,61 +97,133 @@ export function ContentStrategy() {
     });
   };
 
+  // ✅ SOTA Enterprise-Grade: Multi-strategy sitemap fetcher with intelligent fallbacks
   const fetchSitemapText = async (targetUrl: string): Promise<string> => {
     const trimmed = targetUrl.trim();
+    const errors: string[] = [];
 
-    // ✅ SOTA Enterprise-Grade: Use Supabase edge function for reliable CORS-free sitemap fetching
-    // This works in all environments: local dev, Lovable preview, and production
+    // Helper for fetch with timeout
+    const fetchWithTimeout = async (
+      url: string, 
+      options: RequestInit, 
+      timeoutMs: number
+    ): Promise<Response> => {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        window.clearTimeout(timeoutId);
+        return response;
+      } catch (e) {
+        window.clearTimeout(timeoutId);
+        throw e;
+      }
+    };
+
+    // Strategy 1: Direct fetch (works if CORS headers are present on target server)
+    try {
+      console.log("[Sitemap] Strategy 1: Direct fetch");
+      const response = await fetchWithTimeout(trimmed, {
+        method: "GET",
+        headers: { "Accept": "application/xml, text/xml, */*" },
+      }, 15000);
+      
+      if (response.ok) {
+        const text = await response.text();
+        if (text.includes("<urlset") || text.includes("<sitemapindex")) {
+          console.log("[Sitemap] Direct fetch succeeded");
+          return text;
+        }
+      }
+      errors.push(`Direct: ${response.status}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      errors.push(`Direct: ${msg}`);
+      console.log("[Sitemap] Direct fetch failed:", msg);
+    }
+
+    // Strategy 2: Supabase edge function
     const supabaseUrl = getSupabaseUrl();
     const anonKey = getSupabaseAnonKey();
 
-    if (!supabaseUrl || !anonKey) {
-      throw new Error("Supabase not configured. Please configure Supabase in Setup to enable sitemap crawling.");
+    if (supabaseUrl && anonKey) {
+      try {
+        console.log("[Sitemap] Strategy 2: Supabase edge function");
+        const response = await fetchWithTimeout(
+          `${supabaseUrl}/functions/v1/fetch-sitemap`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "apikey": anonKey,
+              "Authorization": `Bearer ${anonKey}`,
+            },
+            body: JSON.stringify({ url: trimmed }),
+          },
+          30000
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const content = data.content || data;
+          if (typeof content === "string" && (content.includes("<urlset") || content.includes("<sitemapindex"))) {
+            console.log("[Sitemap] Supabase edge function succeeded");
+            return content;
+          }
+        }
+        errors.push(`Supabase: ${response.status}`);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Unknown error";
+        errors.push(`Supabase: ${msg}`);
+        console.log("[Sitemap] Supabase edge function failed:", msg);
+      }
     }
 
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 55000);
-
+    // Strategy 3: allorigins.win CORS proxy (reliable public service)
     try {
-      // Use the Supabase edge function for sitemap fetching
-      const response = await fetch(`${supabaseUrl}/functions/v1/fetch-sitemap`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": anonKey,
-          "Authorization": `Bearer ${anonKey}`,
-        },
-        body: JSON.stringify({ url: trimmed }),
-        signal: controller.signal,
-      });
-
-      window.clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Sitemap fetch failed (${response.status}): ${errorText.slice(0, 200)}`);
-      }
-
-      const data = await response.json();
+      console.log("[Sitemap] Strategy 3: allorigins.win proxy");
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(trimmed)}`;
+      const response = await fetchWithTimeout(proxyUrl, { method: "GET" }, 20000);
       
-      // Handle JSON response format from edge function
-      if (data.content) {
-        return data.content;
+      if (response.ok) {
+        const text = await response.text();
+        if (text.includes("<urlset") || text.includes("<sitemapindex")) {
+          console.log("[Sitemap] allorigins.win succeeded");
+          return text;
+        }
       }
-      
-      // Fallback: if response is plain text/XML
-      if (typeof data === "string") {
-        return data;
-      }
-
-      throw new Error("Unexpected response format from sitemap fetcher");
+      errors.push(`allorigins: ${response.status}`);
     } catch (e) {
-      window.clearTimeout(timeoutId);
-      if (e instanceof DOMException && e.name === "AbortError") {
-        throw new Error("Request timed out after 55s - sitemap may be too large or server unresponsive");
-      }
-      throw e;
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      errors.push(`allorigins: ${msg}`);
+      console.log("[Sitemap] allorigins.win failed:", msg);
     }
+
+    // Strategy 4: corsproxy.io (another reliable fallback)
+    try {
+      console.log("[Sitemap] Strategy 4: corsproxy.io");
+      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(trimmed)}`;
+      const response = await fetchWithTimeout(proxyUrl, { method: "GET" }, 20000);
+      
+      if (response.ok) {
+        const text = await response.text();
+        if (text.includes("<urlset") || text.includes("<sitemapindex")) {
+          console.log("[Sitemap] corsproxy.io succeeded");
+          return text;
+        }
+      }
+      errors.push(`corsproxy: ${response.status}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      errors.push(`corsproxy: ${msg}`);
+      console.log("[Sitemap] corsproxy.io failed:", msg);
+    }
+
+    // All strategies failed
+    throw new Error(
+      `Failed to fetch sitemap after trying 4 methods. Errors: ${errors.join(" | ")}. ` +
+      `Please verify the sitemap URL is correct and accessible.`
+    );
   };
 
   const handleGenerateContentPlan = () => {
