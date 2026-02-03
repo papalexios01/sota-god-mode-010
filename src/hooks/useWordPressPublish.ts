@@ -3,7 +3,7 @@
 // ============================================================
 
 import { useState, useCallback } from 'react';
-import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
+import { supabase, isSupabaseConfigured, getSupabaseAnonKey, getSupabaseUrl } from '@/integrations/supabase/client';
 import { useOptimizerStore } from '@/lib/store';
 
 interface PublishResult {
@@ -39,21 +39,66 @@ export function useWordPressPublish() {
 
       // Try Supabase function first
       if (supabase && isSupabaseConfigured()) {
+        const safeSlug = options?.slug ? options.slug.replace(/^\/+/, '') : undefined;
+
+        const body = {
+          wpUrl: config.wpUrl,
+          username: config.wpUsername,
+          appPassword: config.wpAppPassword,
+          title,
+          content,
+          excerpt: options?.excerpt,
+          status: options?.status || 'draft',
+          slug: safeSlug,
+          metaDescription: options?.metaDescription,
+        };
+
         const { data, error } = await supabase.functions.invoke('wordpress-publish', {
           body: {
-            wpUrl: config.wpUrl,
-            username: config.wpUsername,
-            appPassword: config.wpAppPassword,
-            title,
-            content,
-            excerpt: options?.excerpt,
-            status: options?.status || 'draft',
-            slug: options?.slug,
-            metaDescription: options?.metaDescription,
+            ...body,
           },
         });
 
         if (error) {
+          // Supabase sometimes returns a generic network error here (CORS/OPTIONS mismatch on the function)
+          // Try a minimal direct call that avoids extra headers like `apikey` / `x-client-info`.
+          if (/Failed to send a request to the Edge Function/i.test(error.message)) {
+            const supabaseUrl = getSupabaseUrl();
+            const anonKey = getSupabaseAnonKey();
+
+            if (supabaseUrl && anonKey) {
+              try {
+                const fnUrl = `${supabaseUrl.replace(/\/+$/, '')}/functions/v1/wordpress-publish`;
+                const res = await fetch(fnUrl, {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${anonKey}`,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                  },
+                  body: JSON.stringify(body),
+                });
+
+                const json = await res.json().catch(() => null);
+                if (json?.success) {
+                  const result: PublishResult = {
+                    success: true,
+                    postId: json.post?.id,
+                    postUrl: json.post?.url,
+                  };
+                  setPublishResult(result);
+                  return result;
+                }
+
+                const msg = json?.error || `Edge Function request failed (${res.status})`;
+                throw new Error(msg);
+              } catch (e) {
+                // Fall through to the original error for consistent messaging
+                console.warn('[WordPressPublish] Fallback invoke failed:', e);
+              }
+            }
+          }
+
           throw new Error(error.message);
         }
 

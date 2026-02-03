@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import type { ContentItem } from '@/lib/store';
 import type { GeneratedContent, NeuronWriterAnalysis } from '@/lib/sota';
 import { useWordPressPublish } from '@/hooks/useWordPressPublish';
+import { getPathnameFromUrl, getWordPressPostSlugFromUrl, toSafeWpSlug } from '@/lib/wordpress/slug';
 import { toast } from 'sonner';
 
 interface ContentViewerPanelProps {
@@ -54,6 +55,17 @@ export function ContentViewerPanel({
   const content = item.content || '';
   const hasContent = content.length > 0;
   const wordCount = item.wordCount || content.split(/\s+/).filter(Boolean).length;
+
+  const sourcePathname = useMemo(() => getPathnameFromUrl(item.url), [item.url]);
+  const sourceSlug = useMemo(() => getWordPressPostSlugFromUrl(item.url), [item.url]);
+
+  const effectivePublishSlug = useMemo(() => {
+    if (sourceSlug) return sourceSlug;
+    if (generatedContent?.slug) return toSafeWpSlug(generatedContent.slug);
+    // Fallback: make the title safe and avoid the "Rewrite:" prefix leaking into the slug
+    const title = item.title.replace(/^\s*rewrite\s*:\s*/i, '').trim();
+    return toSafeWpSlug(title);
+  }, [generatedContent?.slug, item.title, sourceSlug]);
 
   // Extract headings from content
   const headings = useMemo(() => {
@@ -102,7 +114,7 @@ export function ContentViewerPanel({
       content,
       {
         status: publishStatus,
-        slug: generatedContent?.slug,
+        slug: effectivePublishSlug,
         metaDescription: generatedContent?.metaDescription,
         excerpt: generatedContent?.metaDescription,
       }
@@ -826,7 +838,14 @@ export function ContentViewerPanel({
                     <ul className="text-sm text-muted-foreground space-y-1">
                       <li>• Full HTML content ({wordCount.toLocaleString()} words)</li>
                       <li>• SEO meta description</li>
-                      <li>• URL slug: /{generatedContent?.slug || item.title.toLowerCase().replace(/\s+/g, '-')}</li>
+                      {sourcePathname && (
+                        <li>
+                          • Source URL path: <span className="font-mono">{sourcePathname}</span>
+                        </li>
+                      )}
+                      <li>
+                        • URL slug: /<span className="font-mono">{effectivePublishSlug}</span>
+                      </li>
                     </ul>
                   </div>
                 </div>
