@@ -1,5 +1,6 @@
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
@@ -39,7 +40,11 @@ async function fetchWpLinks(
     try {
       const res = await fetch(mkUrl(page), {
         method: "GET",
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+          // Helps bypass some WordPress/WAF rules that treat default runtimes as suspicious.
+          "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+        },
         signal: controller.signal,
       });
       const json = await res.json().catch(() => null);

@@ -1,3 +1,5 @@
+import { adaptJinaMarkdownToSitemapXml } from "./jinaSitemapAdapter";
+
 export type FetchSitemapTextConfig = {
   supabaseUrl?: string | null;
   supabaseAnonKey?: string | null;
@@ -124,13 +126,17 @@ export async function fetchSitemapTextRaced(
   // Format: https://r.jina.ai/http(s)://example.com/path
   strategies.push({
     name: "Jina",
-    run: (signal) =>
-      fetchTextWithTimeout(
+    run: async (signal) => {
+      const text = await fetchTextWithTimeout(
         `https://r.jina.ai/${trimmed.startsWith("http") ? trimmed : `https://${trimmed}`}`,
         { method: "GET", headers: { Accept: "application/xml, text/xml, */*" } },
         perStrategyTimeoutMs,
         signal
-      ),
+      );
+
+      // Jina often returns Markdown lists; convert them into real sitemap XML when possible.
+      return adaptJinaMarkdownToSitemapXml(text, trimmed) ?? text;
+    },
   });
 
   if (strategies.length === 0) throw new Error("No fetch strategies available");
