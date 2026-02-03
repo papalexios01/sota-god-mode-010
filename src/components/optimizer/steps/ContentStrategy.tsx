@@ -113,8 +113,9 @@ export function ContentStrategy() {
       supabaseUrl,
       supabaseAnonKey: anonKey,
       signal: externalSignal,
-      perStrategyTimeoutMs: 12000,
-      overallTimeoutMs: 15000,
+      // GearUpToFit's Yoast sitemaps can be slow/cold-start on the server; give the Supabase strategy time.
+      perStrategyTimeoutMs: 25000,
+      overallTimeoutMs: 35000,
     });
   };
 
@@ -180,42 +181,71 @@ export function ContentStrategy() {
     try {
       const input = sitemapUrl.trim();
 
-      // ✅ FASTEST PATH (WordPress): If the user enters a site URL (not a .xml), use WP REST API.
-      // This bypasses sitemap/CORS issues and is usually 10-100x faster.
-      const looksLikeXml = /\.xml(\.gz)?\b/i.test(input);
-      if (!looksLikeXml) {
-        try {
-          setCrawlStatus("Trying WordPress API…");
-          const wpUrls = await discoverWordPressUrls(input, {
+      // ✅ FASTEST PATH (WordPress): Try server-side WP REST discovery FIRST (even if a sitemap XML was provided).
+      // This bypasses giant Yoast post-sitemaps (often slow) and avoids browser CORS.
+      try {
+        const supabaseUrl = getSupabaseUrl();
+        const anonKey = getSupabaseAnonKey();
+
+        const tryWpDiscoverViaSupabase = async (): Promise<string[] | null> => {
+          if (!supabaseUrl || !anonKey) return null;
+
+          const controller = new AbortController();
+          const timeoutId = window.setTimeout(() => controller.abort(), 20000);
+          if (signal.aborted) throw new Error("Cancelled");
+          signal.addEventListener("abort", () => controller.abort(), { once: true });
+
+          try {
+            const res = await fetch(`${supabaseUrl}/functions/v1/wp-discover`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                apikey: anonKey,
+                Authorization: `Bearer ${anonKey}`,
+              },
+              body: JSON.stringify({ siteUrl: input, perPage: 100, maxPages: 250, maxUrls: 100000 }),
+              signal: controller.signal,
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok || !data?.success || !Array.isArray(data?.urls)) return null;
+            return data.urls as string[];
+          } finally {
+            window.clearTimeout(timeoutId);
+          }
+        };
+
+        setCrawlStatus("Trying WordPress API…");
+        const wpUrls =
+          (await tryWpDiscoverViaSupabase()) ??
+          (await discoverWordPressUrls(input, {
             signal,
             timeoutMs: 8000,
             perPage: 100,
-            maxPages: 250,
-            maxUrls: 100000,
+            maxPages: 50,
+            maxUrls: 50000,
             onProgress: (p) => {
               if (crawlRunIdRef.current !== runId) return;
               const total = p.totalPages ? `/${p.totalPages}` : "";
               setCrawlStatus(`WP API • ${p.endpoint} page ${p.page}${total} • ${p.discovered.toLocaleString()} URLs`);
               setCrawlFoundCount(p.discovered);
             },
-          });
+          }));
 
-          if (wpUrls.length > 0) {
-            if (crawlRunIdRef.current !== runId) return;
-            const blogPostUrls = filterBlogPostUrls(wpUrls);
-            setCrawledUrls(blogPostUrls);
-            setSitemapUrls(blogPostUrls);
-            setCrawlFoundCount(blogPostUrls.length);
-            setCrawlStatus(`Done (WP API) • ${blogPostUrls.length.toLocaleString()} blog posts (filtered from ${wpUrls.length.toLocaleString()} total)`);
-            toast.success(`Found ${blogPostUrls.length.toLocaleString()} URLs via WordPress API!`);
-            return;
-          }
-        } catch (e) {
-          // WP API is optional; fall back to sitemap crawl
-          const msg = e instanceof Error ? e.message : String(e);
-          // eslint-disable-next-line no-console
-          console.info("[Sitemap] WordPress API discovery skipped/failed:", msg);
+        if (wpUrls.length > 0) {
+          if (crawlRunIdRef.current !== runId) return;
+          const blogPostUrls = filterBlogPostUrls(wpUrls);
+          setCrawledUrls(blogPostUrls);
+          setSitemapUrls(blogPostUrls);
+          setCrawlFoundCount(blogPostUrls.length);
+          setCrawlStatus(`Done (WP API) • ${blogPostUrls.length.toLocaleString()} blog posts (filtered from ${wpUrls.length.toLocaleString()} total)`);
+          toast.success(`Found ${blogPostUrls.length.toLocaleString()} URLs via WordPress API!`);
+          return;
         }
+      } catch (e) {
+        // WP API is optional; fall back to sitemap crawl
+        const msg = e instanceof Error ? e.message : String(e);
+        // eslint-disable-next-line no-console
+        console.info("[Sitemap] WordPress API discovery skipped/failed:", msg);
       }
 
       // ✅ Enterprise robustness: if the user provides a heavy/slow sitemap (e.g. post-sitemap.xml),
@@ -253,7 +283,7 @@ export function ContentStrategy() {
         // ✅ HIGH concurrency for speed - parallel racing handles reliability
         concurrency: 8,
         // ✅ HARD cap per-sitemap fetch+parse time so we never “hang” on one URL
-        fetchTimeoutMs: 17000,
+        fetchTimeoutMs: 35000,
         signal,
         onProgress: (p: SitemapCrawlProgress) => {
           if (crawlRunIdRef.current !== runId) return;

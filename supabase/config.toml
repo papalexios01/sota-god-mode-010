@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.wordpress-publish]
 verify_jwt = false
+
+[functions.wp-discover]
+verify_jwt = false

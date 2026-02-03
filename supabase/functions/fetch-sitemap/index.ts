@@ -3,7 +3,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 interface FetchRequest {
@@ -54,9 +55,9 @@ Deno.serve(async (req: Request) => {
 
     console.log(`[fetch-sitemap] Fetching: ${targetUrl}`);
 
-    // Aggressive timeout - most sitemaps load in <5s
+    // Hard timeout (server-side) to prevent hanging requests on huge sitemaps
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
 
     const response = await fetch(targetUrl, {
       method: "GET",
