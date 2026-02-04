@@ -2,14 +2,16 @@
 // SOTA CONTENT VIEWER PANEL - Enterprise-Grade Content Display
 // ============================================================
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { 
   X, Copy, Check, Download, ExternalLink, Sparkles, 
   FileText, Code, Search, BarChart3, Link2, Shield,
   ChevronLeft, ChevronRight, Maximize2, Minimize2,
   BookOpen, Clock, Target, Zap, Award, Eye, EyeOff,
   TrendingUp, CheckCircle, AlertTriangle, Brain,
-  Hash, List, Type, ArrowRight, Upload, Loader2
+  Hash, List, Type, ArrowRight, Upload, Loader2,
+  Edit3, Save, RotateCcw, Bold, Italic, Heading1, Heading2, Heading3, 
+  ListOrdered, Quote, Table, Image as ImageIcon, Undo, Redo
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ContentItem } from '@/lib/store';
@@ -29,7 +31,7 @@ interface ContentViewerPanelProps {
   hasNext?: boolean;
 }
 
-type ViewTab = 'preview' | 'html' | 'seo' | 'schema' | 'links' | 'neuron';
+type ViewTab = 'preview' | 'editor' | 'html' | 'seo' | 'schema' | 'links' | 'neuron';
 
 export function ContentViewerPanel({ 
   item, 
@@ -143,8 +145,81 @@ export function ContentViewerPanel({
     }
   };
 
+  // Editor state
+  const [editedContent, setEditedContent] = useState<string>('');
+  const [isEditorDirty, setIsEditorDirty] = useState(false);
+  const [editorHistory, setEditorHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+
+  // Initialize editor content when item changes
+  useEffect(() => {
+    if (content) {
+      setEditedContent(content);
+      setEditorHistory([content]);
+      setHistoryIndex(0);
+      setIsEditorDirty(false);
+    }
+  }, [content, item?.id]);
+
+  // Editor actions
+  const handleEditorChange = useCallback((newContent: string) => {
+    setEditedContent(newContent);
+    setIsEditorDirty(newContent !== content);
+    // Add to history (max 50 entries)
+    setEditorHistory(prev => {
+      const newHistory = [...prev.slice(0, historyIndex + 1), newContent].slice(-50);
+      setHistoryIndex(newHistory.length - 1);
+      return newHistory;
+    });
+  }, [content, historyIndex]);
+
+  const handleUndo = useCallback(() => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      setHistoryIndex(newIndex);
+      setEditedContent(editorHistory[newIndex]);
+      setIsEditorDirty(editorHistory[newIndex] !== content);
+    }
+  }, [historyIndex, editorHistory, content]);
+
+  const handleRedo = useCallback(() => {
+    if (historyIndex < editorHistory.length - 1) {
+      const newIndex = historyIndex + 1;
+      setHistoryIndex(newIndex);
+      setEditedContent(editorHistory[newIndex]);
+      setIsEditorDirty(editorHistory[newIndex] !== content);
+    }
+  }, [historyIndex, editorHistory, content]);
+
+  const handleResetEditor = useCallback(() => {
+    setEditedContent(content);
+    setIsEditorDirty(false);
+    setEditorHistory([content]);
+    setHistoryIndex(0);
+    toast.info('Editor reset to original content');
+  }, [content]);
+
+  const insertHtmlTag = useCallback((tag: string, attributes: string = '') => {
+    const selection = window.getSelection();
+    const selectedText = selection?.toString() || 'Your text here';
+    
+    let insertion = '';
+    if (['h1', 'h2', 'h3', 'p', 'strong', 'em', 'blockquote'].includes(tag)) {
+      insertion = `<${tag}${attributes}>${selectedText}</${tag}>`;
+    } else if (tag === 'ul' || tag === 'ol') {
+      insertion = `<${tag}>\n  <li>${selectedText}</li>\n</${tag}>`;
+    } else if (tag === 'table') {
+      insertion = `<table style="width: 100%; border-collapse: collapse;">\n  <thead>\n    <tr>\n      <th style="padding: 12px; border: 1px solid #374151; background: #1f2937;">Header 1</th>\n      <th style="padding: 12px; border: 1px solid #374151; background: #1f2937;">Header 2</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td style="padding: 12px; border: 1px solid #374151;">Data 1</td>\n      <td style="padding: 12px; border: 1px solid #374151;">Data 2</td>\n    </tr>\n  </tbody>\n</table>`;
+    } else if (tag === 'img') {
+      insertion = `<img src="https://example.com/image.jpg" alt="${selectedText}" style="max-width: 100%; border-radius: 12px;" />`;
+    }
+    
+    handleEditorChange(editedContent + '\n\n' + insertion);
+  }, [editedContent, handleEditorChange]);
+
   const tabs: { id: ViewTab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'preview', label: 'Preview', icon: <Eye className="w-4 h-4" /> },
+    { id: 'editor', label: 'Editor', icon: <Edit3 className="w-4 h-4" />, badge: isEditorDirty ? 1 : undefined },
     { id: 'html', label: 'HTML', icon: <Code className="w-4 h-4" /> },
     { id: 'seo', label: 'SEO Analysis', icon: <Search className="w-4 h-4" /> },
     { id: 'links', label: 'Internal Links', icon: <Link2 className="w-4 h-4" />, badge: generatedContent?.internalLinks?.length || contentLinks.length },
@@ -324,6 +399,203 @@ export function ContentViewerPanel({
                     prose-td:p-3 prose-td:border-t prose-td:border-border"
                   dangerouslySetInnerHTML={{ __html: content }}
                 />
+              </div>
+            )}
+
+            {/* Editor Tab - SOTA Rich Text Editor */}
+            {activeTab === 'editor' && (
+              <div className="p-6 h-full flex flex-col">
+                {/* Editor Toolbar */}
+                <div className="bg-card/50 border border-border rounded-xl p-3 mb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                      <Edit3 className="w-5 h-5 text-primary" />
+                      Content Editor
+                      {isEditorDirty && (
+                        <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 text-xs rounded-full font-medium">
+                          Unsaved Changes
+                        </span>
+                      )}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleUndo}
+                        disabled={historyIndex <= 0}
+                        className="p-2 bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all disabled:opacity-30"
+                        title="Undo (Ctrl+Z)"
+                      >
+                        <Undo className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={handleRedo}
+                        disabled={historyIndex >= editorHistory.length - 1}
+                        className="p-2 bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all disabled:opacity-30"
+                        title="Redo (Ctrl+Y)"
+                      >
+                        <Redo className="w-4 h-4" />
+                      </button>
+                      <div className="w-px h-6 bg-border mx-1" />
+                      <button
+                        onClick={handleResetEditor}
+                        disabled={!isEditorDirty}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg text-sm transition-all disabled:opacity-30"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        Reset
+                      </button>
+                      <button
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(editedContent);
+                          toast.success('Content copied to clipboard!');
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/20 text-primary hover:bg-primary/30 rounded-lg text-sm transition-all"
+                      >
+                        <Copy className="w-4 h-4" />
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Formatting Toolbar */}
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <div className="flex items-center gap-0.5 bg-muted/30 rounded-lg p-1">
+                      <button
+                        onClick={() => insertHtmlTag('h2')}
+                        className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-all"
+                        title="Heading 2"
+                      >
+                        <Heading2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => insertHtmlTag('h3')}
+                        className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-all"
+                        title="Heading 3"
+                      >
+                        <Heading3 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="w-px h-6 bg-border mx-1" />
+                    <div className="flex items-center gap-0.5 bg-muted/30 rounded-lg p-1">
+                      <button
+                        onClick={() => insertHtmlTag('strong')}
+                        className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-all"
+                        title="Bold"
+                      >
+                        <Bold className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => insertHtmlTag('em')}
+                        className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-all"
+                        title="Italic"
+                      >
+                        <Italic className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="w-px h-6 bg-border mx-1" />
+                    <div className="flex items-center gap-0.5 bg-muted/30 rounded-lg p-1">
+                      <button
+                        onClick={() => insertHtmlTag('ul')}
+                        className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-all"
+                        title="Bullet List"
+                      >
+                        <List className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => insertHtmlTag('ol')}
+                        className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-all"
+                        title="Numbered List"
+                      >
+                        <ListOrdered className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="w-px h-6 bg-border mx-1" />
+                    <div className="flex items-center gap-0.5 bg-muted/30 rounded-lg p-1">
+                      <button
+                        onClick={() => insertHtmlTag('blockquote')}
+                        className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-all"
+                        title="Quote"
+                      >
+                        <Quote className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => insertHtmlTag('table')}
+                        className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-all"
+                        title="Table"
+                      >
+                        <Table className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => insertHtmlTag('img')}
+                        className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-all"
+                        title="Image"
+                      >
+                        <ImageIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="ml-auto text-xs text-muted-foreground">
+                      {editedContent.split(/\s+/).filter(Boolean).length.toLocaleString()} words
+                    </div>
+                  </div>
+                </div>
+
+                {/* Split View: Editor + Live Preview */}
+                <div className="flex-1 grid grid-cols-2 gap-4 min-h-0">
+                  {/* HTML Editor */}
+                  <div className="flex flex-col bg-muted/20 border border-border rounded-xl overflow-hidden">
+                    <div className="bg-muted/30 px-4 py-2 border-b border-border flex items-center gap-2">
+                      <Code className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-medium text-foreground">HTML Source</span>
+                    </div>
+                    <textarea
+                      value={editedContent}
+                      onChange={(e) => handleEditorChange(e.target.value)}
+                      className="flex-1 p-4 bg-transparent text-foreground font-mono text-sm resize-none focus:outline-none placeholder:text-muted-foreground leading-relaxed"
+                      placeholder="Paste or type your HTML content here..."
+                      spellCheck={false}
+                    />
+                  </div>
+
+                  {/* Live Preview */}
+                  <div className="flex flex-col bg-muted/20 border border-border rounded-xl overflow-hidden">
+                    <div className="bg-muted/30 px-4 py-2 border-b border-border flex items-center gap-2">
+                      <Eye className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-medium text-foreground">Live Preview</span>
+                    </div>
+                    <div className="flex-1 overflow-auto p-4">
+                      <article 
+                        className="prose prose-invert prose-sm max-w-none
+                          prose-headings:text-foreground prose-headings:font-bold
+                          prose-h2:text-xl prose-h2:mb-3 prose-h2:mt-6 prose-h2:text-primary
+                          prose-h3:text-lg prose-h3:mb-2 prose-h3:mt-4
+                          prose-p:text-muted-foreground prose-p:leading-relaxed prose-p:mb-3
+                          prose-a:text-primary prose-a:no-underline hover:prose-a:underline
+                          prose-strong:text-foreground
+                          prose-ul:my-3 prose-li:text-muted-foreground prose-li:mb-1
+                          prose-blockquote:border-l-primary prose-blockquote:bg-muted/30 prose-blockquote:py-2 prose-blockquote:px-3 prose-blockquote:rounded-r-lg
+                          prose-table:border prose-table:border-border
+                          prose-th:bg-muted/50 prose-th:p-2 prose-th:text-left prose-th:text-sm
+                          prose-td:p-2 prose-td:border-t prose-td:border-border prose-td:text-sm"
+                        dangerouslySetInnerHTML={{ __html: editedContent }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Editor Tips */}
+                <div className="mt-4 p-3 bg-primary/5 border border-primary/20 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <Sparkles className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-muted-foreground">
+                      <p className="font-medium text-foreground mb-1">💡 Pro Tips:</p>
+                      <ul className="list-disc list-inside space-y-1">
+                        <li>Use the toolbar buttons to insert formatted HTML elements</li>
+                        <li>Changes are saved to your clipboard - click "Copy" when done</li>
+                        <li>The live preview updates as you type</li>
+                        <li>Click "Reset" to restore the original generated content</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 

@@ -24,6 +24,57 @@ export interface ContentItem {
   error?: string;
   createdAt: Date;
   updatedAt: Date;
+  // Persisted generation data - survives navigation
+  generatedContentId?: string;
+}
+
+// Persisted generated content store - indexed by content item ID
+export interface GeneratedContentStore {
+  [itemId: string]: {
+    id: string;
+    title: string;
+    seoTitle?: string;
+    content: string;
+    metaDescription: string;
+    slug: string;
+    primaryKeyword: string;
+    secondaryKeywords: string[];
+    wordCount: number;
+    qualityScore: {
+      overall: number;
+      readability: number;
+      seo: number;
+      eeat: number;
+      uniqueness: number;
+      factAccuracy: number;
+    };
+    internalLinks: Array<{ anchorText?: string; anchor?: string; targetUrl: string; context: string }>;
+    schema?: unknown;
+    serpAnalysis?: {
+      avgWordCount: number;
+      recommendedWordCount: number;
+      userIntent: string;
+    };
+    neuronWriterQueryId?: string;
+    generatedAt: string;
+    model: string;
+  };
+}
+
+// Persisted NeuronWriter analysis store
+export interface NeuronWriterDataStore {
+  [itemId: string]: {
+    query_id: string;
+    keyword: string;
+    status: string;
+    terms: Array<{ term: string; weight: number; frequency: number; type: string; usage_pc?: number; sugg_usage?: [number, number] }>;
+    termsExtended?: Array<{ term: string; weight: number; frequency: number; type: string }>;
+    entities?: Array<{ entity: string; type?: string; usage_pc: number }>;
+    headingsH2?: Array<{ text: string; level: string; usage_pc: number }>;
+    headingsH3?: Array<{ text: string; level: string; usage_pc: number }>;
+    recommended_length: number;
+    content_score?: number;
+  };
 }
 
 export interface PriorityUrl {
@@ -134,6 +185,16 @@ interface OptimizerStore {
     qualityScore?: number; 
     wordCount?: number;
   }) => void;
+  
+  // Persisted Generated Content (survives navigation)
+  generatedContentsStore: GeneratedContentStore;
+  setGeneratedContent: (itemId: string, content: GeneratedContentStore[string]) => void;
+  removeGeneratedContent: (itemId: string) => void;
+  
+  // Persisted NeuronWriter Data
+  neuronWriterDataStore: NeuronWriterDataStore;
+  setNeuronWriterData: (itemId: string, data: NeuronWriterDataStore[string]) => void;
+  removeNeuronWriterData: (itemId: string) => void;
 }
 
 export const useOptimizerStore = create<OptimizerStore>()(
@@ -284,6 +345,26 @@ export const useOptimizerStore = create<OptimizerStore>()(
             }
           }
         };
+      }),
+      
+      // Persisted Generated Content Store
+      generatedContentsStore: {},
+      setGeneratedContent: (itemId, content) => set((state) => ({
+        generatedContentsStore: { ...state.generatedContentsStore, [itemId]: content }
+      })),
+      removeGeneratedContent: (itemId) => set((state) => {
+        const { [itemId]: _, ...rest } = state.generatedContentsStore;
+        return { generatedContentsStore: rest };
+      }),
+      
+      // Persisted NeuronWriter Data Store
+      neuronWriterDataStore: {},
+      setNeuronWriterData: (itemId, data) => set((state) => ({
+        neuronWriterDataStore: { ...state.neuronWriterDataStore, [itemId]: data }
+      })),
+      removeNeuronWriterData: (itemId) => set((state) => {
+        const { [itemId]: _, ...rest } = state.neuronWriterDataStore;
+        return { neuronWriterDataStore: rest };
       }),
     }),
     {

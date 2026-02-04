@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { useOptimizerStore, type ContentItem } from "@/lib/store";
+import { useState, useCallback, useMemo } from "react";
+import { useOptimizerStore, type ContentItem, type GeneratedContentStore, type NeuronWriterDataStore } from "@/lib/store";
 import { 
   FileText, Check, X, AlertCircle, Trash2, 
   Sparkles, ArrowUpDown, Eye, Brain,
@@ -11,23 +11,114 @@ import { ContentViewerPanel } from "../ContentViewerPanel";
 import { EnhancedGenerationModal, type GenerationStep } from "../EnhancedGenerationModal";
 import { ContentIntelligenceDashboard } from "../ContentIntelligenceDashboard";
 
+// Helper to reconstruct GeneratedContent from persisted store (minimal shape for viewer)
+function reconstructGeneratedContent(stored: GeneratedContentStore[string] | undefined): GeneratedContent | null {
+  if (!stored) return null;
+  return {
+    id: stored.id,
+    title: stored.title,
+    seoTitle: stored.seoTitle,
+    content: stored.content,
+    metaDescription: stored.metaDescription,
+    slug: stored.slug,
+    primaryKeyword: stored.primaryKeyword,
+    secondaryKeywords: stored.secondaryKeywords,
+    metrics: {
+      wordCount: stored.wordCount,
+      sentenceCount: Math.round(stored.wordCount / 15),
+      paragraphCount: Math.round(stored.wordCount / 100),
+      headingCount: 10,
+      imageCount: 0,
+      linkCount: stored.internalLinks?.length || 0,
+      keywordDensity: 1.5,
+      readabilityGrade: 7,
+      estimatedReadTime: Math.ceil(stored.wordCount / 200),
+    },
+    qualityScore: {
+      ...stored.qualityScore,
+      passed: stored.qualityScore.overall >= 85,
+      improvements: [],
+    },
+    internalLinks: (stored.internalLinks || []).map(l => ({
+      ...l,
+      priority: 1,
+      relevanceScore: 0.8,
+    })),
+    schema: (stored.schema as GeneratedContent['schema']) || { '@context': 'https://schema.org', '@graph': [] },
+    eeat: {
+      author: { name: '', credentials: [], publications: [], expertiseAreas: [], socialProfiles: [] },
+      citations: [],
+      expertReviews: [],
+      methodology: '',
+      lastUpdated: new Date(),
+      factChecked: false,
+    },
+    serpAnalysis: stored.serpAnalysis ? {
+      avgWordCount: stored.serpAnalysis.avgWordCount,
+      recommendedWordCount: stored.serpAnalysis.recommendedWordCount,
+      userIntent: stored.serpAnalysis.userIntent as 'informational' | 'transactional' | 'navigational' | 'commercial',
+      commonHeadings: [],
+      contentGaps: [],
+      semanticEntities: [],
+      topCompetitors: [],
+      recommendedHeadings: [],
+    } : {
+      avgWordCount: stored.wordCount,
+      recommendedWordCount: 2500,
+      userIntent: 'informational' as const,
+      commonHeadings: [],
+      contentGaps: [],
+      semanticEntities: [],
+      topCompetitors: [],
+      recommendedHeadings: [],
+    },
+    generatedAt: new Date(stored.generatedAt),
+    model: stored.model as GeneratedContent['model'],
+    consensusUsed: false,
+    neuronWriterQueryId: stored.neuronWriterQueryId,
+  };
+}
+
+// Helper to reconstruct NeuronWriterAnalysis from persisted store
+function reconstructNeuronData(stored: NeuronWriterDataStore[string] | undefined): NeuronWriterAnalysis | null {
+  if (!stored) return null;
+  return {
+    query_id: stored.query_id,
+    keyword: stored.keyword,
+    status: stored.status,
+    terms: stored.terms.map(t => ({ ...t, type: t.type as 'required' | 'recommended' | 'optional' })),
+    termsExtended: stored.termsExtended?.map(t => ({ ...t, type: t.type as 'required' | 'recommended' | 'optional' })) || [],
+    entities: stored.entities?.map(e => ({ entity: e.entity, type: e.type, usage_pc: e.usage_pc })) || [],
+    headingsH2: stored.headingsH2?.map(h => ({ text: h.text, level: 'h2' as const, usage_pc: h.usage_pc })) || [],
+    headingsH3: stored.headingsH3?.map(h => ({ text: h.text, level: 'h3' as const, usage_pc: h.usage_pc })) || [],
+    recommended_length: stored.recommended_length,
+    content_score: stored.content_score,
+    competitors: [],
+  };
+}
+
 export function ReviewExport() {
   const { 
     contentItems, 
     updateContentItem, 
     removeContentItem,
     config,
-    sitemapUrls 
+    sitemapUrls,
+    // Persisted stores - survives navigation!
+    generatedContentsStore,
+    setGeneratedContent,
+    removeGeneratedContent,
+    neuronWriterDataStore,
+    setNeuronWriterData,
+    removeNeuronWriterData,
   } = useOptimizerStore();
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [sortField, setSortField] = useState<'title' | 'type' | 'status'>('title');
   const [sortAsc, setSortAsc] = useState(true);
   const [showAnalytics, setShowAnalytics] = useState(false);
   
-  // Content Viewer State
+  // Content Viewer State - now uses persisted store
   const [viewingItem, setViewingItem] = useState<ContentItem | null>(null);
-  const [generatedContents, setGeneratedContents] = useState<Record<string, GeneratedContent>>({});
-  const [neuronDataStore, setNeuronDataStore] = useState<Record<string, NeuronWriterAnalysis>>({});
   
   // Generation State
   const [isGenerating, setIsGenerating] = useState(false);
@@ -208,12 +299,56 @@ export function ReviewExport() {
         // Mark all steps complete
         setGenerationSteps(prev => prev.map(s => ({ ...s, status: 'completed' })));
 
-        // Store the generated content
-        setGeneratedContents(prev => ({ ...prev, [item.id]: result }));
+        // Store the generated content in persisted store (survives navigation)
+        setGeneratedContent(item.id, {
+          id: result.id,
+          title: result.title,
+          seoTitle: result.seoTitle,
+          content: result.content,
+          metaDescription: result.metaDescription,
+          slug: result.slug,
+          primaryKeyword: result.primaryKeyword,
+          secondaryKeywords: result.secondaryKeywords,
+          wordCount: result.metrics.wordCount,
+          qualityScore: {
+            overall: result.qualityScore.overall,
+            readability: result.qualityScore.readability,
+            seo: result.qualityScore.seo,
+            eeat: result.qualityScore.eeat,
+            uniqueness: result.qualityScore.uniqueness,
+            factAccuracy: result.qualityScore.factAccuracy,
+          },
+          internalLinks: result.internalLinks.map(l => ({
+            anchorText: l.anchorText,
+            anchor: l.anchor,
+            targetUrl: l.targetUrl,
+            context: l.context,
+          })),
+          schema: result.schema,
+          serpAnalysis: result.serpAnalysis ? {
+            avgWordCount: result.serpAnalysis.avgWordCount,
+            recommendedWordCount: result.serpAnalysis.recommendedWordCount,
+            userIntent: result.serpAnalysis.userIntent,
+          } : undefined,
+          neuronWriterQueryId: result.neuronWriterQueryId,
+          generatedAt: result.generatedAt.toISOString(),
+          model: result.model,
+        });
 
-        // Store NeuronWriter analysis (if available)
+        // Store NeuronWriter analysis (if available) in persisted store
         if (result.neuronWriterAnalysis) {
-          setNeuronDataStore(prev => ({ ...prev, [item.id]: result.neuronWriterAnalysis! }));
+          setNeuronWriterData(item.id, {
+            query_id: result.neuronWriterAnalysis.query_id,
+            keyword: result.neuronWriterAnalysis.keyword,
+            status: result.neuronWriterAnalysis.status,
+            terms: result.neuronWriterAnalysis.terms || [],
+            termsExtended: result.neuronWriterAnalysis.termsExtended,
+            entities: result.neuronWriterAnalysis.entities,
+            headingsH2: result.neuronWriterAnalysis.headingsH2,
+            headingsH3: result.neuronWriterAnalysis.headingsH3,
+            recommended_length: result.neuronWriterAnalysis.recommended_length,
+            content_score: result.neuronWriterAnalysis.content_score,
+          });
         }
 
         updateContentItem(item.id, { 
@@ -525,8 +660,8 @@ export function ReviewExport() {
       {viewingItem && (
         <ContentViewerPanel
           item={viewingItem}
-          generatedContent={generatedContents[viewingItem.id] || null}
-          neuronData={neuronDataStore[viewingItem.id] || null}
+          generatedContent={reconstructGeneratedContent(generatedContentsStore[viewingItem.id])}
+          neuronData={reconstructNeuronData(neuronWriterDataStore[viewingItem.id])}
           onClose={() => setViewingItem(null)}
           onPrevious={handlePreviousItem}
           onNext={handleNextItem}

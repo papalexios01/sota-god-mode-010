@@ -135,6 +135,13 @@ export class EnterpriseContentOrchestrator {
 
     let html = this.stripModelContinuationArtifacts(params.currentHtml);
     let words = this.countWordsFromHtml(html);
+    
+    // CRITICAL: Minimum absolute word count - never accept less than 2000 words
+    const minAbsoluteWords = Math.max(2000, targetWordCount);
+    // Target at least 90% of the specified word count for quality
+    const minTargetWords = Math.floor(minAbsoluteWords * 0.9);
+
+    this.log(`📝 Initial content: ${words} words (target: ${minAbsoluteWords}+, minimum acceptable: ${minTargetWords})`);
 
     // Heuristics:
     // - if it explicitly asks to continue, it's definitely incomplete
@@ -142,14 +149,23 @@ export class EnterpriseContentOrchestrator {
     const looksIncomplete = (s: string) =>
       /content continues|continue\?|would you like me to continue/i.test(s);
 
-    const maxContinuations = 5;
+    // CRITICAL FIX: More aggressive continuation - up to 8 attempts, stricter word count check
+    const maxContinuations = 8;
     for (let i = 1; i <= maxContinuations; i++) {
-      const tooShort = words > 0 && words < Math.max(800, Math.floor(targetWordCount * 0.8));
-      if (!tooShort && !looksIncomplete(html)) break;
+      // STRICT CHECK: Must reach minimum target OR look complete
+      const tooShort = words < minTargetWords;
+      const explicitlyIncomplete = looksIncomplete(html);
+      
+      if (!tooShort && !explicitlyIncomplete) {
+        this.log(`✅ Content meets target: ${words}/${minTargetWords} words (${Math.round(words/minTargetWords*100)}%)`);
+        break;
+      }
 
-      this.log(`⚠️ Output too short (${words} words). Continuing generation… (${i}/${maxContinuations})`);
+      const percentComplete = Math.round((words / minTargetWords) * 100);
+      const remainingWords = minAbsoluteWords - words;
+      this.log(`⚠️ Content too short: ${words}/${minTargetWords} words (${percentComplete}%). Need ${remainingWords} more. Continuing... (${i}/${maxContinuations})`);
 
-      const tail = html.slice(-1600);
+      const tail = html.slice(-2000);
       const continuationPrompt = `Continue the SAME HTML article titled "${title}" about "${keyword}" EXACTLY where it left off.
 
 Rules (MUST FOLLOW):
@@ -169,22 +185,34 @@ Now continue:`;
         model,
         apiKeys: this.config.apiKeys,
         systemPrompt,
-        temperature: 0.68,
+        temperature: 0.72,
       });
 
       const nextChunk = this.stripModelContinuationArtifacts(next.content);
-      if (!nextChunk) break;
+      if (!nextChunk || nextChunk.length < 100) {
+        this.log('⚠️ Model returned empty or minimal content; stopping continuation.');
+        break;
+      }
 
       // Avoid infinite loops when the model repeats the same tail
-      const dedupeWindow = html.slice(-800);
-      const chunkStart = nextChunk.slice(0, 800);
+      const dedupeWindow = html.slice(-600);
+      const chunkStart = nextChunk.slice(0, 600);
       if (dedupeWindow && chunkStart && dedupeWindow.includes(chunkStart)) {
         this.log('⚠️ Continuation looks repetitive; stopping to avoid duplication.');
         break;
       }
 
       html = `${html}\n\n${nextChunk}`.trim();
-      words = this.countWordsFromHtml(html);
+      const newWords = this.countWordsFromHtml(html);
+      this.log(`📝 Added ${newWords - words} words → Total: ${newWords} words`);
+      words = newWords;
+    }
+
+    // Final check - warn if still short
+    if (words < minTargetWords) {
+      this.log(`⚠️ WARNING: Final content is ${words} words (${Math.round(words/minTargetWords*100)}%), below target of ${minTargetWords}. May need regeneration.`);
+    } else {
+      this.log(`✅ Long-form content complete: ${words} words`);
     }
 
     return html;
@@ -193,12 +221,15 @@ Now continue:`;
   private async maybeInitNeuronWriter(keyword: string, options: GenerationOptions): Promise<NeuronBundle | null> {
     const apiKey = this.config.neuronWriterApiKey?.trim();
     const projectId = this.config.neuronWriterProjectId?.trim();
-    if (!apiKey || !projectId) return null;
+    if (!apiKey || !projectId) {
+      this.log('NeuronWriter: SKIPPED - API key or Project ID not configured');
+      return null;
+    }
 
     const service = createNeuronWriterService(apiKey);
     const queryIdFromOptions = options.neuronWriterQueryId?.trim();
 
-    this.log('NeuronWriter: preparing query...');
+    this.log('NeuronWriter: 🔍 Initializing integration...');
 
     let queryId = queryIdFromOptions;
     
@@ -209,47 +240,71 @@ Now continue:`;
       
       if (searchResult.success && searchResult.query) {
         queryId = searchResult.query.id;
-        this.log(`NeuronWriter: ✅ FOUND existing query "${searchResult.query.keyword}" (ID: ${queryId}) - using it!`);
+        const status = searchResult.query.status || 'unknown';
+        this.log(`NeuronWriter: ✅ FOUND existing query "${searchResult.query.keyword}" (ID: ${queryId}, status: ${status}) - using it!`);
       } else {
         // STEP 2: Only create NEW query if none exists
-        this.log(`NeuronWriter: no existing query found, creating new one...`);
+        this.log(`NeuronWriter: no existing query found, creating new Content Writer query...`);
         const created = await service.createQuery(projectId, keyword);
         if (!created.success || !created.queryId) {
-          this.log(`NeuronWriter: failed to create query (${created.error || 'unknown error'})`);
+          this.log(`NeuronWriter: ❌ FAILED to create query - ${created.error || 'unknown error'}`);
+          this.log(`NeuronWriter: Proceeding WITHOUT NeuronWriter optimization`);
           return null;
         }
         queryId = created.queryId;
-        this.log(`NeuronWriter: ✅ Created NEW query (ID: ${queryId})`);
+        this.log(`NeuronWriter: ✅ Created NEW Content Writer query (ID: ${queryId})`);
       }
+    } else {
+      this.log(`NeuronWriter: Using provided query ID: ${queryId}`);
     }
 
-    // Poll until ready (NeuronWriter analysis can take a bit)
-    // NeuronWriter can legitimately take 1-3 minutes for fresh queries.
-    // A too-short timeout causes: (a) no term/entity/headings injection, and (b) duplicate query creation on retries.
-    const maxAttempts = 30;
+    // Poll until ready with extended timeout for fresh queries
+    // NeuronWriter analysis can take 2-4 minutes for new keywords
+    const maxAttempts = 40; // ~4 minutes with backoff
+    let lastStatus = '';
+    
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       const analysisRes = await service.getQueryAnalysis(queryId);
+      
       if (analysisRes.success && analysisRes.analysis) {
         const summary = service.getAnalysisSummary(analysisRes.analysis);
-        this.log(`NeuronWriter: analysis ready - ${summary}`);
+        this.log(`NeuronWriter: ✅ Analysis READY - ${summary}`);
+        
+        // Validate we got meaningful data
+        const hasTerms = (analysisRes.analysis.terms?.length || 0) > 0;
+        const hasHeadings = (analysisRes.analysis.headingsH2?.length || 0) > 0;
+        
+        if (!hasTerms && !hasHeadings) {
+          this.log(`NeuronWriter: ⚠️ WARNING - Analysis returned but contains no terms or headings`);
+        }
+        
         return { service, queryId, analysis: analysisRes.analysis };
       }
 
       const msg = analysisRes.error || 'Query not ready';
+      const currentStatus = msg.match(/Status:\s*(\w+)/i)?.[1] || '';
+      
       // If it's not-ready, retry; otherwise treat as hard failure.
-      const looksNotReady = /not ready|status/i.test(msg);
+      const looksNotReady = /not ready|status|waiting|in progress/i.test(msg);
       if (!looksNotReady) {
-        this.log(`NeuronWriter: analysis failed (${msg})`);
+        this.log(`NeuronWriter: ❌ Analysis failed permanently - ${msg}`);
         return null;
       }
 
-      // Backoff: 3s → 6s
-      const delay = attempt <= 3 ? 3000 : 6000;
+      // Only log status changes to reduce noise
+      if (currentStatus !== lastStatus) {
+        this.log(`NeuronWriter: Status: ${currentStatus || 'processing'}...`);
+        lastStatus = currentStatus;
+      }
+
+      // Progressive backoff: 2s → 4s → 6s
+      const delay = attempt <= 3 ? 2000 : attempt <= 10 ? 4000 : 6000;
       this.log(`NeuronWriter: waiting for analysis… (attempt ${attempt}/${maxAttempts})`);
       await this.sleep(delay);
     }
 
-    this.log('NeuronWriter: analysis timed out (still not ready)');
+    this.log('NeuronWriter: ⏱️ Analysis timed out after 40 attempts (~4 minutes)');
+    this.log('NeuronWriter: Proceeding WITHOUT NeuronWriter optimization - check NeuronWriter dashboard');
     return null;
   }
 
