@@ -30,25 +30,25 @@ const DEFAULT_MODEL_CONFIGS: Record<AIModel, ModelConfig> = {
     endpoint: 'https://api.openai.com/v1/chat/completions',
     modelId: 'gpt-4o',
     weight: 1.0,
-    maxTokens: 4096
+    maxTokens: 16384
   },
   anthropic: {
     endpoint: 'https://api.anthropic.com/v1/messages',
     modelId: 'claude-sonnet-4-20250514',
     weight: 1.0,
-    maxTokens: 4096
+    maxTokens: 8192
   },
   openrouter: {
     endpoint: 'https://openrouter.ai/api/v1/chat/completions',
-    modelId: 'anthropic/claude-3.5-sonnet', // Default, can be overridden
+    modelId: 'anthropic/claude-3.5-sonnet',
     weight: 0.9,
-    maxTokens: 4096
+    maxTokens: 8192
   },
   groq: {
     endpoint: 'https://api.groq.com/openai/v1/chat/completions',
-    modelId: 'llama-3.3-70b-versatile', // Default, can be overridden
+    modelId: 'llama-3.3-70b-versatile',
     weight: 0.8,
-    maxTokens: 4096
+    maxTokens: 8192
   }
 };
 

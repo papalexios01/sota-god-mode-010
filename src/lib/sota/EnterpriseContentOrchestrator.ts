@@ -311,14 +311,17 @@ export class EnterpriseContentOrchestrator {
       this.log(`⚠️ Content too short: ${words}/${minTargetWords} words (${percentComplete}%). Need ${remainingWords} more. Continuing... (${i}/${maxContinuations})`);
 
       const tail = html.slice(-2000);
-      const continuationPrompt = `Continue the SAME HTML article titled "${title}" about "${keyword}" EXACTLY where it left off.
+      const remainingNeeded = minAbsoluteWords - words;
+      const continuationPrompt = `Continue the SAME HTML article titled "${title}" about "${keyword}" EXACTLY where it left off. You still need approximately ${remainingNeeded} more words.
 
 Rules (MUST FOLLOW):
 - Output ONLY the HTML continuation (no preface, no apology, no brackets, no notes)
 - Do NOT repeat the H1 or reprint earlier sections
-- Do NOT ask questions like “Would you like me to continue?”
+- Do NOT ask questions like "Would you like me to continue?"
 - Keep the same tone, formatting, and premium boxes/tables
-- Finish the article fully (including the FAQ section + final CTA as instructed)
+- Add DEPTH: include real data points, specific examples, expert quotes, pro tip boxes, and comparison tables
+- Each new section MUST add genuine value — no padding or filler
+- Finish the article fully (including the FAQ section with 8 questions + final CTA as instructed)
 
 Last part of the current article (for context):
 ${tail}

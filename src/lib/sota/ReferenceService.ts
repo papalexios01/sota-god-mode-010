@@ -186,27 +186,23 @@ export class ReferenceService {
 
     const sortedRefs = [...references].sort((a, b) => b.authorityScore - a.authorityScore);
 
-    return `
-<section class="references-section" style="margin-top: 48px; padding-top: 32px; border-top: 3px solid #e5e7eb;">
-  <h2 style="font-size: 24px; font-weight: 800; margin-bottom: 24px; color: #1f2937;">References &amp; Sources</h2>
-  <ol style="list-style: decimal; padding-left: 24px; line-height: 2; color: #374151;">
-    ${sortedRefs.map((ref) => `
-    <li style="margin-bottom: 12px;">
-      <a href="${ref.url}" target="_blank" rel="noopener noreferrer" style="color: #059669; text-decoration: underline; font-weight: 500;">
-        ${ref.title}
-      </a>
-      <span style="color: #6b7280; font-size: 13px;"> -- ${ref.domain}</span>
-      ${ref.type === 'academic' ? '<span style="background: #dbeafe; color: #1e40af; font-size: 11px; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">Academic</span>' : ''}
-      ${ref.type === 'government' ? '<span style="background: #ede9fe; color: #5b21b6; font-size: 11px; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">Official</span>' : ''}
-    </li>
-    `).join('')}
-  </ol>
-</section>
-`;
+    const typeLabel = (ref: Reference): string => {
+      if (ref.type === 'academic') return ' [Academic]';
+      if (ref.type === 'government') return ' [Official]';
+      return '';
+    };
+
+    const listItems = sortedRefs.map((ref) => {
+      const safeTitle = ref.title.replace(/"/g, '&quot;');
+      const label = typeLabel(ref);
+      return `<li><a href="${ref.url}" rel="noopener noreferrer">${safeTitle}</a> &mdash; <em>${ref.domain}</em>${label}</li>`;
+    }).join('\n    ');
+
+    return `\n<hr>\n<h2>References &amp; Sources</h2>\n<ol>\n    ${listItems}\n</ol>\n`;
   }
 
   formatInlineCitation(reference: Reference, index: number): string {
-    return `<sup><a href="${reference.url}" target="_blank" rel="noopener noreferrer" style="color: #22c55e; text-decoration: none;">[${index + 1}]</a></sup>`;
+    return `<sup><a href="${reference.url}" rel="noopener noreferrer">[${index + 1}]</a></sup>`;
   }
 
   async getTopReferences(keyword: string, count: number = 8): Promise<Reference[]> {
