@@ -1,3 +1,5 @@
+
+const sitemapCache = new TTLCache<any>(5 * 60_000);
 import type { Express, Request, Response } from "express";
 import { db } from "./db";
 import { generatedBlogPosts } from "../shared/schema";

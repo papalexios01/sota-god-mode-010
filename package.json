@@ -9,7 +9,11 @@
     "dev:client": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.66.0",
@@ -50,6 +54,11 @@
     "@vitejs/plugin-react": "^4.7.0",
     "drizzle-kit": "^0.31.8",
     "typescript": "^5.9.3",
-    "vite": "^5.4.21"
+    "vite": "^5.4.21",
+    "eslint": "^9.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "prettier": "^3.0.0",
+    "vitest": "^1.0.0"
   }
 }

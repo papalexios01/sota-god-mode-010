@@ -1,7 +1,12 @@
 import express from "express";
+import { requestIdMiddleware, timingMiddleware, basicRateLimit } from "./middleware";
 import { registerRoutes } from "./routes";
 
 const app = express();
+
+app.use(requestIdMiddleware);
+app.use(timingMiddleware);
+app.use(basicRateLimit({ windowMs: 60_000, max: 120 }));
 app.use(express.json({ limit: "10mb" }));
 
 const corsMiddleware = (_req: express.Request, res: express.Response, next: express.NextFunction) => {
