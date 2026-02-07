@@ -1,6 +1,4 @@
-// ============================================================
 // SOTA ENTERPRISE TYPES - WP Content Optimizer Pro
-// ============================================================
 
 import type { NeuronWriterAnalysis, NeuronWriterHeading, NeuronWriterEntity } from './NeuronWriterService';
 

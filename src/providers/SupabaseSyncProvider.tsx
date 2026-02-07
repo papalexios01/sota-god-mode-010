@@ -2,13 +2,10 @@ import { useEffect, createContext, useContext, ReactNode, Component, ErrorInfo }
 import { useSupabaseSync } from '@/hooks/useSupabaseSync';
 import { getSupabaseConfig } from '@/lib/supabaseClient';
 
-// =============================================================================
 // SOTA Supabase Sync Provider with Graceful Degradation
-// =============================================================================
 // This provider wraps the application and provides Supabase sync functionality.
 // It gracefully handles the case where Supabase is not configured, allowing
 // the app to function in "offline mode" with localStorage-only persistence.
-// =============================================================================
 
 interface SupabaseSyncContextType {
   isLoading: boolean;

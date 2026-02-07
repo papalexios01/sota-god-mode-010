@@ -1,6 +1,4 @@
-// ============================================================
 // SERP ANALYZER - Real-Time Search Results Analysis
-// ============================================================
 
 import type { SERPResult, SERPAnalysis } from './types';
 import { serpCache } from './cache';

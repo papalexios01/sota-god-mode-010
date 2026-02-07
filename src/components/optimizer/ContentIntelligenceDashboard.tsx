@@ -1,6 +1,4 @@
-// ============================================================
 // CONTENT INTELLIGENCE DASHBOARD - Analytics & Metrics UI
-// ============================================================
 
 import { useState, useEffect } from 'react';
 import { 

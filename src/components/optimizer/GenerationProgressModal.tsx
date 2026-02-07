@@ -1,6 +1,4 @@
-// ============================================================
 // GENERATION PROGRESS MODAL - Real-Time Generation Status
-// ============================================================
 
 import { useState, useEffect } from 'react';
 import { Loader2, Check, AlertCircle, Sparkles, X } from 'lucide-react';

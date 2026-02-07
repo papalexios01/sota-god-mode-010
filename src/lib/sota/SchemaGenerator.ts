@@ -1,7 +1,5 @@
-// ============================================================
 // SCHEMA GENERATOR - Enhanced Schema.org Structured Data Automation
 // Supports: Article, FAQ, HowTo, Speakable, Organization, BreadcrumbList, Product, Review
-// ============================================================
 
 import type { SchemaMarkup, SchemaEntity, EEATProfile, GeneratedContent } from './types';
 

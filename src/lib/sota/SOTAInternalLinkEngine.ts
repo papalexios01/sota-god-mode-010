@@ -1,7 +1,5 @@
-// ============================================================
 // SOTA INTERNAL LINK ENGINE v3.0 - ENTERPRISE CONTEXTUAL LINKING
 // 100% real URLs from crawled sitemap with 3-7 word rich anchors
-// ============================================================
 
 import type { InternalLink } from './types';
 

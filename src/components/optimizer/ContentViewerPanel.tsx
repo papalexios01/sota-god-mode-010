@@ -1,6 +1,4 @@
-// ============================================================
 // SOTA CONTENT VIEWER PANEL - Enterprise-Grade Content Display
-// ============================================================
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { 

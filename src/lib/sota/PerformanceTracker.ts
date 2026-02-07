@@ -1,6 +1,4 @@
-// ============================================================
 // PERFORMANCE TRACKER - Real-Time Metrics & Analytics
-// ============================================================
 
 import type { AnalyticsDashboardData, AIModel } from './types';
 

@@ -1,6 +1,4 @@
-// ============================================================
 // QUALITY VALIDATOR - Multi-Layer Content Validation
-// ============================================================
 
 import type { QualityScore, ContentMetrics } from './types';
 

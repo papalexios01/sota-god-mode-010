@@ -1,6 +1,4 @@
-// ============================================================
 // REFERENCE SERVICE - Citation Management & Validation
-// ============================================================
 
 import type { Reference } from './types';
 

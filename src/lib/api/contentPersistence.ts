@@ -1,13 +1,10 @@
 import { getSupabaseClient, getSupabaseConfig, withSupabase } from '../supabaseClient';
 import type { GeneratedContentStore } from '../store';
 
-// =============================================================================
 // SOTA Content Persistence with Graceful Supabase Fallback
-// =============================================================================
 // All operations safely check for Supabase availability.
 // When Supabase is not configured, operations return sensible defaults
 // and the app continues to work using local storage (via Zustand persist).
-// =============================================================================
 
 const TABLE = 'generated_blog_posts';
 
@@ -22,10 +19,7 @@ export function getLastDbCheckError() {
 export async function ensureTableExists(): Promise<boolean> {
   // If Supabase is not configured, return false (not an error state)
   if (!getSupabaseConfig().configured || !getSupabaseClient()) {
-<<<<<<< HEAD
-=======
     lastDbCheckError = null;
->>>>>>> a03bf59 (SOTA: Supabase diagnostics + test connection + correct RLS guidance)
     console.info('[ContentPersistence] Supabase not configured, using local storage only');
     return false;
   }

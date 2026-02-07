@@ -1,6 +1,4 @@
-// ============================================================
 // ENTERPRISE CONTENT ORCHESTRATOR - Full Workflow Management
-// ============================================================
 
 import type { 
   APIKeys, 

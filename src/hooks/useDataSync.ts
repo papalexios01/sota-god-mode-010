@@ -11,13 +11,10 @@ import {
 import { toast } from 'sonner';
 
 
-// =============================================================================
 // SOTA Data Sync Hook with Graceful Degradation
-// =============================================================================
 // This hook manages synchronization between local state and Supabase.
 // When Supabase is not configured, the hook operates in "offline mode"
 // using only localStorage (via Zustand persist middleware).
-// =============================================================================
 
 export function useDataSync() {
   const [isLoading, setIsLoading] = useState(false);

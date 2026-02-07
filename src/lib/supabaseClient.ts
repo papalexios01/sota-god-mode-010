@@ -1,14 +1,11 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// =============================================================================
 // SOTA Supabase Client (Enterprise Grade)
-// =============================================================================
 // Goals:
 // 1) Cloudflare Pages friendly (no server secrets required for client app)
 // 2) Supports runtime configuration (env OR user-provided in Setup, stored locally)
 // 3) Graceful degradation (offline mode still works via local persistence)
 // 4) Safe by design: uses anon key ONLY (never service role on the client)
-// =============================================================================
 
 const LS_URL_KEY = 'sota.supabase.url';
 const LS_ANON_KEY = 'sota.supabase.anonKey';

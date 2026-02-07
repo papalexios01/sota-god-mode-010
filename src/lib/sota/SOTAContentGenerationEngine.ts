@@ -1,6 +1,4 @@
-// ============================================================
 // SOTA CONTENT GENERATION ENGINE - Multi-Model AI Processing
-// ============================================================
 
 import type { 
   AIModel, 

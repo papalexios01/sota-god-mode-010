@@ -1,6 +1,4 @@
-// ============================================================
 // ENHANCED GENERATION MODAL - SOTA Progress Tracking
-// ============================================================
 
 import { useState, useEffect, useRef } from 'react';
 import { 

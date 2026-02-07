@@ -1,6 +1,4 @@
-// ============================================================
 // SOTA GENERATION CACHE - Request Deduplication & Caching
-// ============================================================
 
 import type { CacheEntry } from './types';
 

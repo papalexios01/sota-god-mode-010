@@ -1,6 +1,4 @@
-// ============================================================
 // CONTENT PREVIEW MODAL - Rich Content Preview
-// ============================================================
 
 import { useState } from 'react';
 import { X, Copy, Check, Download, ExternalLink, Sparkles } from 'lucide-react';

@@ -1,6 +1,4 @@
-// ============================================================
 // E-E-A-T VALIDATOR - Experience, Expertise, Authoritativeness, Trustworthiness
-// ============================================================
 
 export interface EEATScore {
   overall: number;

@@ -1,6 +1,4 @@
-// ============================================================
 // YOUTUBE SERVICE - Video Reference Integration
-// ============================================================
 
 import type { YouTubeVideo } from './types';
 

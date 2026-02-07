@@ -1,7 +1,5 @@
-// ============================================================
 // WORDPRESS SLUG HELPERS
 // Keep publish slugs stable for rewrites (derive from source URL)
-// ============================================================
 
 function normalizeUrlish(input: string): string {
   const raw = String(input || '').trim();
