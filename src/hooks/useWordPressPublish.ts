@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useOptimizerStore } from '@/lib/store';
+import { getSupabaseConfig } from '@/lib/supabaseClient';
 
 interface PublishResult {
   success: boolean;
@@ -61,11 +62,13 @@ export function useWordPressPublish() {
         existingPostId: options?.existingPostId,
       };
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const { url: supabaseUrl, anonKey: supabaseKey, configured, issues } = getSupabaseConfig();
 
-      if (!supabaseUrl || !supabaseKey) {
-        throw new Error('Supabase not configured. Cannot publish.');
+      if (!configured) {
+        const detail = issues.length ? ` (${issues.join('; ')})` : '';
+        throw new Error(
+          `Supabase not configured. Open Setup → Supabase and add your project URL + anon key, then reload.${detail}`
+        );
       }
 
       const apiUrl = `${supabaseUrl}/functions/v1/wordpress-publish`;

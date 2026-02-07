@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured, withSupabase } from '../supabaseClient';
+import { getSupabaseClient, getSupabaseConfig, withSupabase } from '../supabaseClient';
 import type { GeneratedContentStore } from '../store';
 
 // =============================================================================
@@ -13,13 +13,13 @@ const TABLE = 'generated_blog_posts';
 
 export async function ensureTableExists(): Promise<boolean> {
   // If Supabase is not configured, return false (not an error state)
-  if (!isSupabaseConfigured || !supabase) {
+  if (!getSupabaseConfig().configured || !getSupabaseClient()) {
     console.info('[ContentPersistence] Supabase not configured, using local storage only');
     return false;
   }
 
   try {
-    const { error } = await supabase
+    const { error } = await getSupabaseClient()!
       .from(TABLE)
       .select('id')
       .limit(1);
@@ -43,13 +43,13 @@ export async function ensureTableExists(): Promise<boolean> {
 
 export async function loadAllBlogPosts(): Promise<GeneratedContentStore> {
   // If Supabase is not configured, return empty (local storage handles persistence)
-  if (!isSupabaseConfigured || !supabase) {
+  if (!getSupabaseConfig().configured || !getSupabaseClient()) {
     console.info('[ContentPersistence] Skipping Supabase load (not configured)');
     return {};
   }
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseClient()!
       .from(TABLE)
       .select('*')
       .order('generated_at', { ascending: false });
@@ -98,7 +98,7 @@ export async function loadAllBlogPosts(): Promise<GeneratedContentStore> {
 
 export async function saveBlogPost(itemId: string, content: GeneratedContentStore[string]): Promise<boolean> {
   // If Supabase is not configured, silently succeed (local storage handles it)
-  if (!isSupabaseConfigured || !supabase) {
+  if (!getSupabaseConfig().configured || !getSupabaseClient()) {
     console.info('[ContentPersistence] Skipping Supabase save (not configured)');
     return true; // Return true so the app doesn't show error states
   }
@@ -125,7 +125,7 @@ export async function saveBlogPost(itemId: string, content: GeneratedContentStor
       user_id: null,
     };
 
-    const { error } = await supabase
+    const { error } = await getSupabaseClient()!
       .from(TABLE)
       .upsert(row, { onConflict: 'item_id' });
 
@@ -144,13 +144,13 @@ export async function saveBlogPost(itemId: string, content: GeneratedContentStor
 
 export async function deleteBlogPost(itemId: string): Promise<boolean> {
   // If Supabase is not configured, silently succeed
-  if (!isSupabaseConfigured || !supabase) {
+  if (!getSupabaseConfig().configured || !getSupabaseClient()) {
     console.info('[ContentPersistence] Skipping Supabase delete (not configured)');
     return true;
   }
 
   try {
-    const { error } = await supabase
+    const { error } = await getSupabaseClient()!
       .from(TABLE)
       .delete()
       .eq('item_id', itemId);

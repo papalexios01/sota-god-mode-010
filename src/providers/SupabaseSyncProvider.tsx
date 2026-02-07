@@ -1,6 +1,6 @@
 import { useEffect, createContext, useContext, ReactNode, Component, ErrorInfo } from 'react';
 import { useSupabaseSync } from '@/hooks/useSupabaseSync';
-import { isSupabaseConfigured } from '@/lib/supabaseClient';
+import { getSupabaseConfig } from '@/lib/supabaseClient';
 
 // =============================================================================
 // SOTA Supabase Sync Provider with Graceful Degradation

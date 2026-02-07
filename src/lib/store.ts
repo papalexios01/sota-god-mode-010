@@ -107,6 +107,10 @@ export interface AppConfig {
   openrouterModelId: string;
   groqModelId: string;
   
+  // Supabase (optional but recommended for publishing + history)
+  supabaseUrl: string;
+  supabaseAnonKey: string;
+
   // WordPress Config
   wpUrl: string;
   wpUsername: string;
@@ -217,6 +221,8 @@ export const useOptimizerStore = create<OptimizerStore>()(
         enableGoogleGrounding: false,
         openrouterModelId: 'anthropic/claude-3.5-sonnet',
         groqModelId: 'llama-3.3-70b-versatile',
+        supabaseUrl: '',
+        supabaseAnonKey: '',
         wpUrl: '',
         wpUsername: '',
         wpAppPassword: '',

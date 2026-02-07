@@ -3,10 +3,11 @@ import { useOptimizerStore } from "@/lib/store";
 import { createNeuronWriterService } from "@/lib/sota/NeuronWriterService";
 import {
   Key, Globe, User, Building, Image, UserCircle,
-  Sparkles, MapPin, Check, AlertCircle, ExternalLink,
+  Sparkles, MapPin, Check, AlertCircle, ExternalLink, Database,
   Settings, Loader2, FolderOpen, RefreshCw, XCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getSupabaseConfig, saveSupabaseConfig, clearSupabaseConfig, validateSupabaseConfig } from "@/lib/supabaseClient";
 
 const OPENROUTER_MODELS = [
   { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet' },
@@ -49,6 +50,10 @@ export function SetupConfig() {
   const [showCustomOpenRouter, setShowCustomOpenRouter] = useState(false);
   const [showCustomGroq, setShowCustomGroq] = useState(false);
   const [nwFetchAttempted, setNwFetchAttempted] = useState(false);
+
+  const [sbUrl, setSbUrl] = useState(config.supabaseUrl || '');
+  const [sbAnonKey, setSbAnonKey] = useState(config.supabaseAnonKey || '');
+  const sbStatus = validateSupabaseConfig(sbUrl.trim(), sbAnonKey.trim());
 
   const configRef = useRef(config);
   configRef.current = config;
@@ -102,6 +107,29 @@ export function SetupConfig() {
       return () => clearTimeout(debounceTimer);
     }
   }, [config.enableNeuronWriter, config.neuronWriterApiKey, fetchNeuronWriterProjects]);
+
+  const handleSaveSupabase = () => {
+    const url = sbUrl.trim();
+    const key = sbAnonKey.trim();
+    const status = validateSupabaseConfig(url, key);
+    if (!status.configured) return;
+
+    setConfig({ supabaseUrl: url, supabaseAnonKey: key });
+    // Persist so Cloudflare Pages deployments work without build-time env vars.
+    saveSupabaseConfig(url, key);
+  };
+
+  const handleClearSupabase = () => {
+    setSbUrl('');
+    setSbAnonKey('');
+    setConfig({ supabaseUrl: '', supabaseAnonKey: '' });
+    clearSupabaseConfig();
+  };
+
+  const handleReloadAfterSupabase = () => {
+    // ensure all modules re-read config
+    window.location.reload();
+  };
 
   const handleVerifyWordPress = async () => {
     if (!config.wpUrl || !config.wpUsername || !config.wpAppPassword) {
@@ -335,6 +363,123 @@ export function SetupConfig() {
             />
             <span className="text-sm text-foreground">Enable Google Search Grounding</span>
           </label>
+        </div>
+      </section>
+
+      
+      {/* Supabase Configuration */}
+      <section className="bg-card border border-border rounded-2xl p-6">
+        <h2 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
+          <Database className="w-5 h-5 text-primary" />
+          Supabase (Publishing + History)
+        </h2>
+        <p className="text-muted-foreground text-sm mb-4">
+          Required for publishing (Edge Function) and syncing history across devices. Uses your <span className="font-medium">anon</span> key only.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <InputField
+            label="Supabase Project URL"
+            value={sbUrl}
+            onChange={(v) => setSbUrl(v)}
+            placeholder="https://xxxx.supabase.co"
+            icon={<Globe className="w-4 h-4" />}
+          />
+          <InputField
+            label="Supabase Anon Key"
+            value={sbAnonKey}
+            onChange={(v) => setSbAnonKey(v)}
+            placeholder="eyJhbGciOi..."
+            icon={<Key className="w-4 h-4" />}
+            type="password"
+          />
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleSaveSupabase}
+            disabled={!sbStatus.configured}
+            className={cn(
+              "px-4 py-2 rounded-xl font-semibold transition-all premium-ring",
+              sbStatus.configured
+                ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
+                : "bg-muted text-muted-foreground cursor-not-allowed"
+            )}
+          >
+            Save
+          </button>
+
+          <button
+            onClick={handleReloadAfterSupabase}
+            disabled={!sbStatus.configured}
+            className={cn(
+              "px-4 py-2 rounded-xl font-semibold transition-all premium-ring border",
+              sbStatus.configured
+                ? "border-border/60 bg-background/30 hover:bg-background/45"
+                : "border-border/30 bg-background/10 text-muted-foreground cursor-not-allowed"
+            )}
+          >
+            Save & Reload
+          </button>
+
+          <button
+            onClick={handleClearSupabase}
+            className="px-4 py-2 rounded-xl font-semibold transition-all premium-ring border border-border/60 bg-background/10 hover:bg-background/25"
+          >
+            Clear
+          </button>
+
+          <div className="ml-auto flex items-center gap-2 text-sm">
+            {sbStatus.configured ? (
+              <span className="inline-flex items-center gap-2 text-emerald-400">
+                <Check className="w-4 h-4" />
+                Configured
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-2 text-amber-400">
+                <AlertCircle className="w-4 h-4" />
+                Not configured
+              </span>
+            )}
+          </div>
+        </div>
+
+        {!sbStatus.configured && sbStatus.issues.length > 0 && (
+          <div className="mt-3 text-sm text-muted-foreground">
+            <div className="font-medium text-foreground mb-1">What to fix:</div>
+            <ul className="list-disc pl-5 space-y-1">
+              {sbStatus.issues.map((issue) => (
+                <li key={issue}>{issue}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="mt-4 text-xs text-muted-foreground">
+          <div className="font-medium text-foreground mb-1">Database schema (recommended)</div>
+          <pre className="whitespace-pre-wrap rounded-xl border border-border/50 bg-background/20 p-3 overflow-auto">
+{`create table if not exists generated_blog_posts (
+  id text primary key,
+  item_id text not null unique,
+  title text not null,
+  seo_title text,
+  content text not null,
+  meta_description text,
+  slug text,
+  primary_keyword text,
+  secondary_keywords text[],
+  word_count int,
+  quality_score jsonb,
+  internal_links jsonb,
+  schema jsonb,
+  serp_analysis jsonb,
+  neuronwriter_query_id text,
+  generated_at timestamptz default now(),
+  model text
+);
+
+-- Enable Row Level Security if you need multi-user. For single-user personal app, you can keep it simple.
+`}</pre>
         </div>
       </section>
 

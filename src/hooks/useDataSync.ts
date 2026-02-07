@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useOptimizerStore, type GeneratedContentStore } from '@/lib/store';
-import { isSupabaseConfigured } from '@/lib/supabaseClient';
+import { getSupabaseConfig } from '@/lib/supabaseClient';
 import { loadAllBlogPosts, saveBlogPost, deleteBlogPost, ensureTableExists } from '@/lib/api/contentPersistence';
 import { toast } from 'sonner';
 
@@ -28,7 +28,7 @@ export function useDataSync() {
 
   const loadFromDatabase = useCallback(async () => {
     // Early exit if Supabase isn't configured - this is expected and not an error
-    if (!isSupabaseConfigured) {
+    if (!getSupabaseConfig().configured) {
       console.info('[DataSync] Running in offline mode (Supabase not configured)');
       setIsLoading(false);
       setIsConnected(false);
@@ -93,7 +93,7 @@ export function useDataSync() {
 
   const saveToDatabase = useCallback(async (itemId: string, contentOverride?: GeneratedContentStore[string]) => {
     // In offline mode, return true (localStorage handles persistence)
-    if (!isSupabaseConfigured) {
+    if (!getSupabaseConfig().configured) {
       return true;
     }
 
@@ -121,7 +121,7 @@ export function useDataSync() {
 
   const deleteFromDatabase = useCallback(async (itemId: string) => {
     // In offline mode, return true (localStorage handles persistence)
-    if (!isSupabaseConfigured) {
+    if (!getSupabaseConfig().configured) {
       return true;
     }
 
@@ -135,7 +135,7 @@ export function useDataSync() {
 
   const syncAllToDatabase = useCallback(async () => {
     // In offline mode, skip sync silently
-    if (!isSupabaseConfigured) {
+    if (!getSupabaseConfig().configured) {
       toast.info('Running in offline mode - data saved locally');
       return;
     }
@@ -168,7 +168,7 @@ export function useDataSync() {
   // Initial load on mount - wrapped in try/catch for safety
   useEffect(() => {
     // Don't attempt load if Supabase isn't configured
-    if (!isSupabaseConfigured) {
+    if (!getSupabaseConfig().configured) {
       console.info('[DataSync] Supabase not configured - skipping initial load');
       setIsLoading(false);
       return;
