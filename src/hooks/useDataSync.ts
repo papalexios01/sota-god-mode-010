@@ -1,12 +1,15 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useOptimizerStore, type GeneratedContentStore } from '@/lib/store';
 import { getSupabaseConfig } from '@/lib/supabaseClient';
-<<<<<<< HEAD
-import { loadAllBlogPosts, saveBlogPost, deleteBlogPost, ensureTableExists } from '@/lib/api/contentPersistence';
-=======
-import { loadAllBlogPosts, saveBlogPost, deleteBlogPost, ensureTableExists, getLastDbCheckError } from '@/lib/api/contentPersistence';
->>>>>>> a03bf59 (SOTA: Supabase diagnostics + test connection + correct RLS guidance)
+import {
+  loadAllBlogPosts,
+  saveBlogPost,
+  deleteBlogPost,
+  ensureTableExists,
+  getLastDbCheckError,
+} from '@/lib/api/contentPersistence';
 import { toast } from 'sonner';
+
 
 // =============================================================================
 // SOTA Data Sync Hook with Graceful Degradation
