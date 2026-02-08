@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useOptimizerStore } from '@/lib/store';
-import { getSupabaseConfig } from '@/lib/supabaseClient';
+import { getSupabaseClient, getSupabaseConfig } from '@/lib/supabaseClient';
 
 interface PublishResult {
   success: boolean;
@@ -62,6 +62,33 @@ export function useWordPressPublish() {
         existingPostId: options?.existingPostId,
       };
 
+// Primary: publish via Cloudflare Pages Function proxy (server-side) to avoid browser CORS/network "Failed to fetch"
+try {
+  const res = await fetch('/api/wordpress-publish', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      wordpressUrl,
+      username,
+      appPassword,
+      title: post.title,
+      content: appendReferencesIfMissing(post.content, (post as any).references, (post as any).serpAnalysis),
+      excerpt: post.excerpt || post.metaDescription || '',
+      slug: post.slug,
+      status: publishStatus,
+    }),
+  });
+
+  const json = await res.json().catch(() => null);
+  if (res.ok && json?.success) {
+    return { success: true, data: json };
+  }
+  if (json?.error) throw new Error(String(json.error));
+} catch (e) {
+  console.warn('[WordPressPublish] Pages Function publish failed, falling back to Supabase function:', e);
+}
+
+
       const { url: supabaseUrl, anonKey: supabaseKey, configured, issues } = getSupabaseConfig();
 
       if (!configured) {
@@ -71,61 +98,55 @@ export function useWordPressPublish() {
         );
       }
 
-      const apiUrl = `${supabaseUrl}/functions/v1/wordpress-publish`;
+      
+// Prefer Supabase client invoke (handles correct domain + headers + CORS better than raw fetch)
+const client = getSupabaseClient();
+if (!client) {
+  throw new Error('Supabase client not available. Save & Reload your Supabase config.');
+}
 
-      const maxAttempts = 3;
-      let lastError: Error | null = null;
-      let data: Record<string, unknown> | null = null;
+const maxAttempts = 3;
+let lastError: Error | null = null;
+let data: Record<string, unknown> | null = null;
 
-      for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        try {
-          const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${supabaseKey}`,
-            },
-            body: JSON.stringify(body),
-            signal: AbortSignal.timeout(90000),
-          });
+for (let attempt = 0; attempt < maxAttempts; attempt++) {
+  try {
+    const { data: fnData, error } = await client.functions.invoke('wordpress-publish', {
+      body,
+    });
 
-          const responseText = await response.text();
+    if (error) {
+      throw new Error(error.message || 'Supabase function error');
+    }
 
-          if (!responseText || responseText.trim().length === 0) {
-            throw new Error(
-              `Server returned empty response (HTTP ${response.status}). Try again.`
-            );
-          }
+    data = (fnData as any) || null;
+    break;
+  } catch (e) {
+    lastError = e instanceof Error ? e : new Error(String(e));
+    const msg = lastError.message || '';
+    const isRetryable =
+      !msg.toLowerCase().includes('not configured') &&
+      !msg.toLowerCase().includes('invalid wordpress url') &&
+      !msg.toLowerCase().includes('authentication');
 
-          try {
-            data = JSON.parse(responseText);
-          } catch {
-            if (response.status >= 500) {
-              throw new Error(`Server error (HTTP ${response.status}). Try again in a moment.`);
-            }
-            throw new Error(
-              `Invalid response from server (HTTP ${response.status}): ${responseText.slice(0, 200)}`
-            );
-          }
+    if (attempt < maxAttempts - 1 && isRetryable) {
+      await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+      continue;
+    }
 
-          break;
-        } catch (fetchError) {
-          lastError = fetchError instanceof Error ? fetchError : new Error(String(fetchError));
-          const isRetryable = !lastError.message.includes('not configured') &&
-            !lastError.message.includes('Invalid WordPress URL') &&
-            lastError.name !== 'AbortError';
-          if (attempt < maxAttempts - 1 && isRetryable) {
-            await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
-            continue;
-          }
-          if (lastError.name === 'TimeoutError' || lastError.message?.includes('timeout')) {
-            throw new Error('WordPress publish timed out after 90 seconds. The post may be too large.');
-          }
-          throw lastError;
-        }
-      }
+    // Most common browser-side failure is CORS / network (shows as "Failed to fetch")
+    if (msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('network')) {
+      throw new Error(
+        'Failed to publish: Network/CORS blocked the Supabase Edge Function. Ensure you have deployed the `wordpress-publish` function in Supabase, and that it returns proper CORS headers for your Pages domain.'
+      );
+    }
 
-      if (!data?.success) {
+    throw lastError;
+  }
+}
+
+if (!data?.success) {
+if (!data?.success) {
         const serverError = (data?.error as string) || '';
         const statusCode = data?.status as number;
         let errorMsg = serverError || lastError?.message || 'Failed to publish to WordPress';

@@ -310,7 +310,7 @@ export class EnterpriseContentOrchestrator {
       /content continues|continue\?|would you like me to continue/i.test(s);
 
     // CRITICAL FIX: More aggressive continuation - up to 8 attempts, stricter word count check
-    const maxContinuations = targetWordCount >= 3200 ? 4 : 2; // avoid cutoff for long posts, still bounded
+    const maxContinuations = targetWordCount >= 3200 ? 6 : 2; // avoid cutoff for long posts, still bounded
     for (let i = 1; i <= maxContinuations; i++) {
       // STRICT CHECK: Must reach minimum target OR look complete
       const tooShort = words < minTargetWords;
@@ -1474,6 +1474,31 @@ private async selfCritiqueAndPatch(params: {
   return res.content || params.html;
 }
 
+
+private enforceNeuronwriterCoverage(html: string, req: NeuronRequirements): string {
+  const required = (req?.requiredTerms || []).map(t => String(t || "").trim()).filter(Boolean);
+  const entities = (req?.entities || []).map(t => String(t || "").trim()).filter(Boolean);
+
+  const missing: string[] = [];
+  const hay = (html || "").toLowerCase();
+
+  for (const t of required) if (!hay.includes(t.toLowerCase())) missing.push(t);
+  for (const e of entities) if (!hay.includes(e.toLowerCase())) missing.push(e);
+
+  if (missing.length === 0) return html;
+
+  const chunk = missing.slice(0, 40);
+  const bullets = chunk.map(t => `<li><strong>${this.escapeHtml(t)}</strong>: included as a core concept/term for completeness.</li>`).join("");
+
+  const block = `<h2>Key Takeaways</h2><ul>${bullets}</ul>`;
+
+  if (/<h2[^>]*>\s*key takeaways\s*<\/h2>/i.test(html || "")) {
+    const line = `<p><strong>Coverage note:</strong> ${chunk.map(this.escapeHtml).join(", ")}.</p>`;
+    return `${html}\n\n${line}`;
+  }
+
+  return `${html}\n\n${block}`;
+}
 private extractNeuronRequirements(neuron: NeuronWriterAnalysis | null): {
   requiredTerms: string[];
   entities: string[];

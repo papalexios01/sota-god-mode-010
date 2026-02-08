@@ -1,37 +1,25 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Runtime-configurable Supabase client (Cloudflare Pages friendly)
-// - Uses anon key only (safe for client apps)
-// - Reads config from env first, then localStorage (Setup step)
-// - Never freezes config at import time
-
-const LS_URL_KEY = "sota.supabase.url";
-const LS_ANON_KEY = "sota.supabase.anonKey";
+const LS_URL_KEY = 'sota.supabase.url';
+const LS_ANON_KEY = 'sota.supabase.anonKey';
 
 function readRuntimeConfig() {
-  const url = (
-    import.meta.env.VITE_SUPABASE_URL?.trim() ||
-    (typeof window !== "undefined" ? localStorage.getItem(LS_URL_KEY) || "" : "")
-  ).trim();
-
-  const anonKey = (
-    import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() ||
-    (typeof window !== "undefined" ? localStorage.getItem(LS_ANON_KEY) || "" : "")
-  ).trim();
-
+  const url =
+    (import.meta.env.VITE_SUPABASE_URL?.trim() ||
+      (typeof window !== 'undefined' ? localStorage.getItem(LS_URL_KEY) || '' : '')).trim();
+  const anonKey =
+    (import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() ||
+      (typeof window !== 'undefined' ? localStorage.getItem(LS_ANON_KEY) || '' : '')).trim();
   return { url, anonKey };
 }
 
 export function validateSupabaseConfig(url: string, anonKey: string) {
   const issues: string[] = [];
-
-  if (!url) issues.push("Missing Supabase URL");
-  if (!anonKey) issues.push("Missing Supabase anon key");
-  if (url && !url.startsWith("https://")) issues.push("Supabase URL must start with https://");
-  if (url && !url.includes(".supabase.")) issues.push("Supabase URL does not look like a Supabase project URL");
-
-  const configured = issues.length === 0;
-  return { configured, issues };
+  if (!url) issues.push('Missing Supabase URL');
+  if (!anonKey) issues.push('Missing Supabase anon key');
+  if (url && !url.startsWith('https://')) issues.push('Supabase URL must start with https://');
+  if (url && !url.includes('.supabase.')) issues.push('Supabase URL does not look like a Supabase project URL');
+  return { configured: issues.length === 0, issues };
 }
 
 export function getSupabaseConfig() {
@@ -41,19 +29,19 @@ export function getSupabaseConfig() {
 }
 
 export function saveSupabaseConfig(url: string, anonKey: string) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(LS_URL_KEY, (url || "").trim());
-  localStorage.setItem(LS_ANON_KEY, (anonKey || "").trim());
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(LS_URL_KEY, (url || '').trim());
+  localStorage.setItem(LS_ANON_KEY, (anonKey || '').trim());
 }
 
 export function clearSupabaseConfig() {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
   localStorage.removeItem(LS_URL_KEY);
   localStorage.removeItem(LS_ANON_KEY);
 }
 
 let supabaseInstance: SupabaseClient | null = null;
-let lastFingerprint = "";
+let lastFingerprint = '';
 
 function fingerprint(url: string, anonKey: string) {
   return `${url}::${anonKey.slice(0, 12)}`;
@@ -69,37 +57,27 @@ export function getSupabaseClient(): SupabaseClient | null {
   try {
     supabaseInstance = createClient(url, anonKey, {
       auth: { persistSession: true, autoRefreshToken: true },
-      global: { headers: { "X-Client-Info": "wp-content-optimizer-pro" } },
+      global: { headers: { 'X-Client-Info': 'wp-content-optimizer-pro' } },
     });
     lastFingerprint = fp;
     return supabaseInstance;
   } catch (e) {
-    console.error("[Supabase] init failed", e);
+    console.error('[Supabase] init failed', e);
     supabaseInstance = null;
-    lastFingerprint = "";
+    lastFingerprint = '';
     return null;
   }
 }
 
-// Dynamic helpers (do NOT freeze config at import time)
 export function isSupabaseConfigured(): boolean {
   return getSupabaseConfig().configured;
 }
 
-export function getSupabase() {
+export function getSupabase(): ReturnType<typeof getSupabaseClient> {
   return getSupabaseClient();
 }
-
-export async function withSupabase<T>(
-  operation: (client: SupabaseClient) => Promise<T>,
-  fallback: T
-): Promise<T> {
+export async function withSupabase<T>(operation: (client: SupabaseClient) => Promise<T>, fallback: T): Promise<T> {
   const client = getSupabaseClient();
   if (!client) return fallback;
-  try {
-    return await operation(client);
-  } catch (e) {
-    console.error("[Supabase] op failed", e);
-    return fallback;
-  }
+  try { return await operation(client); } catch (e) { console.error('[Supabase] op failed', e); return fallback; }
 }
