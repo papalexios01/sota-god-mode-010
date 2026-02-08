@@ -310,7 +310,7 @@ export class EnterpriseContentOrchestrator {
       /content continues|continue\?|would you like me to continue/i.test(s);
 
     // CRITICAL FIX: More aggressive continuation - up to 8 attempts, stricter word count check
-    const maxContinuations = targetWordCount >= 5000 ? 10 : targetWordCount >= 3000 ? 8 : 3;
+    const maxContinuations = targetWordCount >= 5000 ? 2 : 1;
     for (let i = 1; i <= maxContinuations; i++) {
       // STRICT CHECK: Must reach minimum target OR look complete
       const tooShort = words < minTargetWords;
@@ -349,7 +349,7 @@ Now continue:`;
         apiKeys: this.config.apiKeys,
         systemPrompt,
         temperature: 0.72,
-        maxTokens: 16384,
+        maxTokens: 8192,
       });
 
       const nextChunk = this.stripModelContinuationArtifacts(next.content);
@@ -576,8 +576,8 @@ Now continue:`;
       this.log('NeuronWriter: evaluating content score...');
       let currentContent = enhancedContent;
       let currentScore = 0;
-      const targetScore = 90;
-      const maxImprovementAttempts = 5;
+      const targetScore = 80;
+      const maxImprovementAttempts = 2;
 
       const allTermsForSuggestions = [
         ...neuron.analysis.terms,
@@ -677,7 +677,7 @@ Return the COMPLETE improved article with ALL missing terms naturally incorporat
               apiKeys: this.config.apiKeys,
               systemPrompt: `You are an elite SEO content optimizer specializing in NeuronWriter scoring. Your ONLY job: incorporate missing terms naturally to push the score above ${targetScore}%. Preserve all existing content. Output PURE HTML ONLY.`,
               temperature: 0.6 + (attempt * 0.05),
-              maxTokens: 16384
+              maxTokens: 4096
             });
 
             if (improvedResult.content && improvedResult.content.length > currentContent.length * 0.75) {
@@ -709,7 +709,7 @@ ${currentContent}`;
               apiKeys: this.config.apiKeys,
               systemPrompt: 'Elite SEO optimizer. Output PURE HTML ONLY.',
               temperature: 0.65,
-              maxTokens: 16384
+              maxTokens: 4096
             });
 
             if (improvedResult.content && improvedResult.content.length > currentContent.length * 0.75) {

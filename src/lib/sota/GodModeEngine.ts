@@ -508,36 +508,19 @@ export class GodModeEngine {
         throw new Error('Content orchestrator not initialized');
       }
 
-      let content: any = null;
-      let qualityScore = 0;
-      let passCount = 0;
-      const maxPasses = isPriorityItem ? ENTERPRISE_CONSTANTS.MAX_QUALITY_IMPROVEMENT_PASSES : 1;
+      this.log('info', `Starting content generation`, 'Single-pass pipeline with built-in quality optimization');
 
-      this.log('info', `Starting content generation`,
-        isPriorityItem ? `Priority mode: up to ${maxPasses} quality passes` : 'Standard mode: single pass');
+      const content = await this.orchestrator.generateContent({
+        keyword,
+        onProgress: (msg) => this.log('info', msg),
+      });
 
-      while (passCount < maxPasses) {
-        passCount++;
+      const qualityScore = content.qualityScore?.overall || 0;
 
-        content = await this.orchestrator.generateContent({
-          keyword,
-          onProgress: (msg) => this.log('info', `[Pass ${passCount}/${maxPasses}] ${msg}`),
-        });
-
-        qualityScore = content.qualityScore?.overall || 0;
-
-        this.log('info', `Pass ${passCount} complete`,
-          `Quality: ${qualityScore}% | Target: ${ENTERPRISE_CONSTANTS.MIN_QUALITY_SCORE}%`);
-
-        if (qualityScore >= ENTERPRISE_CONSTANTS.MIN_QUALITY_SCORE) {
-          this.log('success', `Target quality achieved!`, `Score: ${qualityScore}% after ${passCount} pass(es)`);
-          break;
-        }
-
-        if (passCount < maxPasses) {
-          this.log('info', `Quality below target, initiating improvement pass ${passCount + 1}...`);
-          await this.sleep(2000);
-        }
+      if (qualityScore >= ENTERPRISE_CONSTANTS.MIN_QUALITY_SCORE) {
+        this.log('success', `Quality target achieved!`, `Score: ${qualityScore}%`);
+      } else {
+        this.log('info', `Quality: ${qualityScore}%`, `Below ${ENTERPRISE_CONSTANTS.MIN_QUALITY_SCORE}% target - content saved for review`);
       }
 
       const processingTime = Date.now() - startTime;
@@ -554,7 +537,7 @@ export class GodModeEngine {
       };
 
       if (qualityScore < this.options.config.qualityThreshold) {
-        this.log('warning', `Below quality threshold after ${passCount} passes`,
+        this.log('warning', `Below quality threshold`,
           `Score: ${qualityScore}/${this.options.config.qualityThreshold}`);
 
         this.addToHistory({
@@ -563,7 +546,7 @@ export class GodModeEngine {
           qualityScore,
           processingTimeMs: processingTime,
           wordCount,
-          error: `Quality score ${qualityScore}% below threshold ${this.options.config.qualityThreshold}% after ${passCount} pass(es)`,
+          error: `Quality score ${qualityScore}% below threshold ${this.options.config.qualityThreshold}%`,
           generatedContent,
         });
 
@@ -580,7 +563,7 @@ export class GodModeEngine {
         await this.runPublishPhase(item, content, processingTime, qualityScore);
       } else {
         this.log('success', `Content Generated`,
-          `Score: ${qualityScore}% | Words: ${wordCount.toLocaleString()} | Time: ${Math.round(processingTime / 1000)}s | Passes: ${passCount}`);
+          `Score: ${qualityScore}% | Words: ${wordCount.toLocaleString()} | Time: ${Math.round(processingTime / 1000)}s`);
 
         this.addToHistory({
           url: item.url,
