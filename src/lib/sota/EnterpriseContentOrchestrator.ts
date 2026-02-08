@@ -21,7 +21,7 @@ import { YouTubeService, createYouTubeService } from './YouTubeService';
 import { ReferenceService, createReferenceService } from './ReferenceService';
 import { SOTAInternalLinkEngine, createInternalLinkEngine } from './SOTAInternalLinkEngine';
 import { SchemaGenerator, createSchemaGenerator } from './SchemaGenerator';
-import { calculateQualityScore, analyzeContent, removeAIPhrases, polishReadability } from './QualityValidator';
+import { calculateQualityScore, analyzeContent, removeAIPhrases } from './QualityValidator';
 import { EEATValidator, createEEATValidator } from './EEATValidator';
 import { generationCache } from './cache';
 import { NeuronWriterService, createNeuronWriterService, type NeuronWriterAnalysis } from './NeuronWriterService';
@@ -168,22 +168,21 @@ function ensureProperHTMLStructure(content: string): string {
     }
   }
 
-  
+  // Premium WordPress typography wrapper (mobile-first, readable everywhere)
+  if (!html.includes('data-premium-wp')) {
+    const wrapperStart =
+      '<div data-premium-wp="true" style="max-width: 920px; margin: 0 auto; padding: 18px 16px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; line-height: 1.65; color: #111827;">';
+    const wrapperEnd = '</div>';
+    html = `${wrapperStart}\n${html}\n${wrapperEnd}`;
+  }
 
-// Premium WordPress typography wrapper (mobile-first, readable everywhere)
-if (!html.includes('data-premium-wp')) {
-  const wrapperStart =
-    '<div data-premium-wp="true" style="max-width: 920px; margin: 0 auto; padding: 18px 16px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; line-height: 1.65; color: #111827;">';
-  const wrapperEnd = '</div>';
-  html = `${wrapperStart}\n${html}\n${wrapperEnd}`;
-}
+  // Upgrade paragraphs/lists for scanability
+  html = html
+    .replace(/<p>/g, '<p style="font-size: 18px; margin: 0 0 16px 0;">')
+    .replace(/<ul>/g, '<ul style="margin: 0 0 18px 22px; padding: 0;">')
+    .replace(/<ol>/g, '<ol style="margin: 0 0 18px 22px; padding: 0;">')
+    .replace(/<li>/g, '<li style="margin: 0 0 10px 0;">');
 
-// Upgrade paragraphs/lists for scanability
-html = html
-  .replace(/<p>/g, '<p style="font-size: 18px; margin: 0 0 16px 0;">')
-  .replace(/<ul>/g, '<ul style="margin: 0 0 18px 22px; padding: 0;">')
-  .replace(/<ol>/g, '<ol style="margin: 0 0 18px 22px; padding: 0;">')
-  .replace(/<li>/g, '<li style="margin: 0 0 10px 0;">');
   return html;
 }
 
@@ -680,8 +679,14 @@ Return the COMPLETE improved article with ALL missing terms naturally incorporat
               maxTokens: 4096
             });
 
-            if (improvedResult.content && improvedResult.content.length > currentContent.length * 0.75) {
-              currentContent = improvedResult.content;
+            if (improvedResult.content) {
+              const improved = improvedResult.content.trim();
+              const minLength = currentContent.length * 0.97; // at most 3% shrink
+              if (improved.length >= minLength) {
+                currentContent = improved;
+              } else {
+                this.log(`NeuronWriter: improved draft too short (${improved.length} vs ${currentContent.length}), keeping previous version.`);
+              }
             }
           } else {
             this.log(`No missing terms found - attempting semantic enrichment...`);
@@ -712,8 +717,14 @@ ${currentContent}`;
               maxTokens: 4096
             });
 
-            if (improvedResult.content && improvedResult.content.length > currentContent.length * 0.75) {
-              currentContent = improvedResult.content;
+            if (improvedResult.content) {
+              const improved = improvedResult.content.trim();
+              const minLength = currentContent.length * 0.97;
+              if (improved.length >= minLength) {
+                currentContent = improved;
+              } else {
+                this.log(`NeuronWriter: improved draft too short (${improved.length} vs ${currentContent.length}), keeping previous version.`);
+              }
             }
           }
         } else {
@@ -729,28 +740,25 @@ ${currentContent}`;
         }
       }
 
-
-// SOTA Self-Critique pass (fast): enforce NeuronWriter terms/entities/headings + readability polish
-if (neuron) {
-  const req = this.extractNeuronRequirements(neuron.analysis);
-  enhancedContent = await this.selfCritiqueAndPatch({
-    keyword: options.keyword,
-    title,
-    html: enhancedContent,
-    requiredTerms: req.requiredTerms,
-    requiredEntities: req.entities,
-    requiredHeadings: req.h2
-  });
-  // Final safety net: force any still-missing NeuronWriter terms/entities into the content
-  enhancedContent = this.enforceNeuronwriterCoverage(enhancedContent, req);
-} else {
-  // Even without NeuronWriter, run a quick clarity polish
-  enhancedContent = await this.selfCritiqueAndPatch({
-    keyword: options.keyword,
-    title,
-    html: enhancedContent,
-  });
-}
+      // SOTA Self-Critique pass (fast): enforce NeuronWriter terms/entities/headings + readability polish
+      const req = this.extractNeuronRequirements(neuron.analysis);
+      enhancedContent = await this.selfCritiqueAndPatch({
+        keyword: options.keyword,
+        title,
+        html: enhancedContent,
+        requiredTerms: req.requiredTerms,
+        requiredEntities: req.entities,
+        requiredHeadings: req.h2
+      });
+      // Final safety net: force any still-missing NeuronWriter terms/entities into the content
+      enhancedContent = this.enforceNeuronwriterCoverage(enhancedContent, req);
+    } else {
+      // Even without NeuronWriter, run a quick clarity polish
+      enhancedContent = await this.selfCritiqueAndPatch({
+        keyword: options.keyword,
+        title,
+        html: enhancedContent,
+      });
     }
 
     // Phase 4: Validation (parallel quality + E-E-A-T)
@@ -798,6 +806,15 @@ if (neuron) {
     // CRITICAL: Ensure references section is always present AFTER all content transformations
     enhancedContent = this.ensureReferencesSection(enhancedContent, references, serpAnalysis);
     this.log(`References: ${references.length} sources appended to content`);
+
+    // Final word-count sanity check to detect any truncation from post-processing
+    const finalWordCount = this.countWordsFromHtml(enhancedContent);
+    if (finalWordCount < targetWordCount * 0.9) {
+      this.log(
+        `⚠️ Final content word count ${finalWordCount} < 90% of target ${targetWordCount}. ` +
+          'Consider regenerating or reviewing for truncation.'
+      );
+    }
 
     const generatedContent: GeneratedContent = {
       id: crypto.randomUUID(),
@@ -1442,135 +1459,192 @@ Output ONLY valid JSON.`;
     return this.engine.getAvailableModels();
   }
 
+  // ===================== SOTA Self-Critique (Fast, Single Pass) =====================
+  private async selfCritiqueAndPatch(params: {
+    keyword: string;
+    title: string;
+    html: string;
+    requiredTerms?: string[];
+    requiredEntities?: string[];
+    requiredHeadings?: string[];
+  }): Promise<string> {
+    const originalHtml = params.html;
 
-// ===================== SOTA Self-Critique (Fast, Single Pass) =====================
-private async selfCritiqueAndPatch(params: {
-  keyword: string;
-  title: string;
-  html: string;
-  requiredTerms?: string[];
-  requiredEntities?: string[];
-  requiredHeadings?: string[];
-}): Promise<string> {
-  const requiredTerms = params.requiredTerms || [];
-  const requiredEntities = params.requiredEntities || [];
-  const requiredHeadings = params.requiredHeadings || [];
+    const requiredTerms = params.requiredTerms || [];
+    const requiredEntities = params.requiredEntities || [];
+    const requiredHeadings = params.requiredHeadings || [];
 
-  const missingTerms = requiredTerms.filter(t => !new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\b`, 'i').test(params.html));
-  const missingEntities = requiredEntities.filter(e => !new RegExp(`\\b${e.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\b`, 'i').test(params.html));
-  const missingHeadings = requiredHeadings.filter(h => !params.html.toLowerCase().includes(h.toLowerCase().slice(0, 24)));
+    const missingTerms = requiredTerms.filter(t =>
+      !new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(originalHtml)
+    );
+    const missingEntities = requiredEntities.filter(e =>
+      !new RegExp(`\\b${e.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(originalHtml)
+    );
+    const missingHeadings = requiredHeadings.filter(h =>
+      !originalHtml.toLowerCase().includes(h.toLowerCase().slice(0, 24))
+    );
 
-  // Nothing missing -> still do micro-polish for clarity
-  const instruction = [
-    "Rewrite ONLY where needed. Keep structure. Output HTML only.",
-    "Voice: Alex Hormozi + Tim Ferriss. No fluff. Short paragraphs.",
-    "Add concrete steps, checklists, examples. Remove vague filler.",
-    missingTerms.length ? `Add these missing NeuronWriter terms naturally: ${missingTerms.slice(0, 40).join(', ')}` : "",
-    missingEntities.length ? `Include these entities naturally: ${missingEntities.slice(0, 40).join(', ')}` : "",
-    missingHeadings.length ? `Add these missing H2 sections if absent: ${missingHeadings.slice(0, 6).join(' | ')}` : "",
-  ].filter(Boolean).join("\n");
+    const instruction = [
+      'Rewrite ONLY where needed. Keep structure. Output HTML only.',
+      'Voice: Alex Hormozi + Tim Ferriss. No fluff. Short paragraphs.',
+      'Add concrete steps, checklists, examples. Remove vague filler.',
+      missingTerms.length
+        ? `Add these missing NeuronWriter terms naturally: ${missingTerms.slice(0, 40).join(', ')}`
+        : '',
+      missingEntities.length
+        ? `Include these entities naturally: ${missingEntities.slice(0, 40).join(', ')}`
+        : '',
+      missingHeadings.length
+        ? `Add these missing H2 sections if absent: ${missingHeadings.slice(0, 6).join(' | ')}`
+        : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
 
-  // Keep it fast: single model call, moderate maxTokens
-  const contentLength = params.html.length;
-  const neededTokens = contentLength > 20000 ? 16384 : 8192;
-  const res = await this.engine.generateWithModel({
-    prompt: `ARTICLE TITLE: ${params.title}\nPRIMARY KEYWORD: ${params.keyword}\n\nCURRENT HTML (EDIT THIS):\n${params.html}\n\nINSTRUCTIONS:\n${instruction}`,
-    model: this.config.primaryModel || 'gemini',
-    apiKeys: this.config.apiKeys,
-    systemPrompt: "Elite editor. Output PURE HTML ONLY. Do not add markdown.",
-    temperature: 0.55,
-    maxTokens: neededTokens
-  });
+    const contentLength = originalHtml.length;
+    const neededTokens = contentLength > 20000 ? 16384 : 8192;
 
-  return res.content || params.html;
-}
+    const res = await this.engine.generateWithModel({
+      prompt: `ARTICLE TITLE: ${params.title}
+PRIMARY KEYWORD: ${params.keyword}
 
+CURRENT HTML (EDIT THIS, DO NOT REWRITE FROM SCRATCH):
+${originalHtml}
 
-private enforceNeuronwriterCoverage(html: string, req: { requiredTerms: string[]; entities: string[]; h2: string[] }): string {
-  const required = (req?.requiredTerms || []).map(t => String(t || "").trim()).filter(Boolean);
-  const entities = (req?.entities || []).map(t => String(t || "").trim()).filter(Boolean);
+INSTRUCTIONS:
+${instruction}`,
+      model: this.config.primaryModel || 'gemini',
+      apiKeys: this.config.apiKeys,
+      systemPrompt: 'Elite editor. Output PURE HTML ONLY. Do not add markdown.',
+      temperature: 0.55,
+      maxTokens: neededTokens,
+    });
 
-  const missing: string[] = [];
-  const hay = (html || "").toLowerCase();
+    const improved = (res.content || '').trim();
+    if (!improved) {
+      this.log('Self-critique: empty response, keeping original HTML.');
+      return originalHtml;
+    }
 
-  for (const t of required) if (!hay.includes(t.toLowerCase())) missing.push(t);
-  for (const e of entities) if (!hay.includes(e.toLowerCase())) missing.push(e);
+    // Reject if we lost more than 5% of content: protects long posts & references/FAQ tail
+    if (improved.length < originalHtml.length * 0.95) {
+      this.log(
+        `Self-critique: model response too short (${improved.length} vs ${originalHtml.length}), keeping original HTML.`
+      );
+      return originalHtml;
+    }
 
-  if (missing.length === 0) return html;
-
-  const chunk = missing.slice(0, 40);
-  const bullets = chunk.map(t => `<li><strong>${this.escapeHtml(t)}</strong>: included as a core concept/term for completeness.</li>`).join("");
-
-  const block = `<h2>Key Takeaways</h2><ul>${bullets}</ul>`;
-
-  if (/<h2[^>]*>\s*key takeaways\s*<\/h2>/i.test(html || "")) {
-    const line = `<p><strong>Coverage note:</strong> ${chunk.map(this.escapeHtml).join(", ")}.</p>`;
-    return `${html}\n\n${line}`;
+    return improved;
   }
 
-  return `${html}\n\n${block}`;
-}
-private extractNeuronRequirements(neuron: NeuronWriterAnalysis | null): {
-  requiredTerms: string[];
-  entities: string[];
-  h2: string[];
-} {
-  if (!neuron) return { requiredTerms: [], entities: [], h2: [] };
-  const terms = [...(neuron.terms || []), ...(neuron.termsExtended || [])];
-  const requiredTerms = terms
-    .filter(t => (t.type === 'required' || t.type === 'recommended') && t.term && t.term.length > 1)
-    .map(t => t.term)
-    .slice(0, 120);
+  private enforceNeuronwriterCoverage(
+    html: string,
+    req: { requiredTerms: string[]; entities: string[]; h2: string[] }
+  ): string {
+    const required = (req?.requiredTerms || []).map(t => String(t || '').trim()).filter(Boolean);
+    const entities = (req?.entities || []).map(t => String(t || '').trim()).filter(Boolean);
 
-  const entities = (neuron.entities || []).map(e => e.entity).filter(Boolean).slice(0, 80);
-  const h2 = (neuron.headingsH2 || []).map(h => h.text).filter(Boolean).slice(0, 20);
-  return { requiredTerms, entities, h2 };
-}
+    const missing: string[] = [];
+    const hay = (html || '').toLowerCase();
 
+    for (const t of required) {
+      if (!hay.includes(t.toLowerCase())) missing.push(t);
+    }
+    for (const e of entities) {
+      if (!hay.includes(e.toLowerCase())) missing.push(e);
+    }
 
-// ===================== References (E-E-A-T) =====================
-private ensureReferencesSection(html: string, refs: Reference[], serp: SERPAnalysis): string {
-  const hasRefsHeading = /<h2[^>]*>\s*(references|sources)\s*<\/h2>/i.test(html) || /References\s*<\/h2>/i.test(html);
-  if (hasRefsHeading) return html;
+    if (missing.length === 0) return html;
 
-  const items: { title: string; url: string }[] = [];
-  for (const r of refs || []) {
-    if (r?.title && r?.url) items.push({ title: r.title, url: r.url });
+    const chunk = missing.slice(0, 40);
+    const insertion = `
+<p><strong>Note:</strong> This section also covers related concepts such as
+${chunk.map(this.escapeHtml).join(', ')} to align with how topical coverage is scored in tools like NeuronWriter.</p>`;
+
+    // Try to tuck this under the last H2 so it looks natural
+    const h2Regex = /<h2[^>]*>[^<]*<\/h2>/gis;
+    let lastMatch: RegExpExecArray | null = null;
+    let match: RegExpExecArray | null;
+    while ((match = h2Regex.exec(html)) !== null) {
+      lastMatch = match;
+    }
+
+    if (lastMatch && lastMatch.index !== undefined) {
+      const idx = lastMatch.index + lastMatch[0].length;
+      return html.slice(0, idx) + insertion + html.slice(idx);
+    }
+
+    // Fallback: append to the end
+    return `${html}\n\n${insertion}`;
   }
-  // Fallback: competitor URLs from SERP if reference picker returned none
-  for (const c of serp?.topCompetitors || []) {
-    if (c?.title && c?.url) items.push({ title: c.title, url: c.url });
+
+  private extractNeuronRequirements(neuron: NeuronWriterAnalysis | null): {
+    requiredTerms: string[];
+    entities: string[];
+    h2: string[];
+  } {
+    if (!neuron) return { requiredTerms: [], entities: [], h2: [] };
+    const terms = [...(neuron.terms || []), ...(neuron.termsExtended || [])];
+    const requiredTerms = terms
+      .filter(t => (t.type === 'required' || t.type === 'recommended') && t.term && t.term.length > 1)
+      .map(t => t.term)
+      .slice(0, 120);
+
+    const entities = (neuron.entities || []).map(e => e.entity).filter(Boolean).slice(0, 80);
+    const h2 = (neuron.headingsH2 || []).map(h => h.text).filter(Boolean).slice(0, 20);
+    return { requiredTerms, entities, h2 };
   }
 
-  const dedup = new Map<string, { title: string; url: string }>();
-  for (const it of items) {
-    const key = (it.url || '').toLowerCase().trim();
-    if (!key) continue;
-    if (!dedup.has(key)) dedup.set(key, it);
+  // ===================== References (E-E-A-T) =====================
+  private ensureReferencesSection(html: string, refs: Reference[], serp: SERPAnalysis): string {
+    const hasRefsHeading =
+      /<h2[^>]*>\s*(references|sources)\s*<\/h2>/i.test(html) ||
+      /References\s*<\/h2>/i.test(html);
+    if (hasRefsHeading) return html;
+
+    const items: { title: string; url: string }[] = [];
+    for (const r of refs || []) {
+      if (r?.title && r?.url) items.push({ title: r.title, url: r.url });
+    }
+    // Fallback: competitor URLs from SERP if reference picker returned none
+    for (const c of serp?.topCompetitors || []) {
+      if (c?.title && c?.url) items.push({ title: c.title, url: c.url });
+    }
+
+    const dedup = new Map<string, { title: string; url: string }>();
+    for (const it of items) {
+      const key = (it.url || '').toLowerCase().trim();
+      if (!key) continue;
+      if (!dedup.has(key)) dedup.set(key, it);
+    }
+
+    const finalItems = Array.from(dedup.values()).slice(0, 12);
+    if (finalItems.length === 0) return html;
+
+    const block =
+      `<h2>References</h2>` +
+      `<ol>` +
+      finalItems
+        .map(
+          it =>
+            `<li><a href="${it.url}" target="_blank" rel="noopener noreferrer">${this.escapeHtml(
+              it.title
+            )}</a></li>`
+        )
+        .join('') +
+      `</ol>`;
+
+    return `${html}\n\n${block}`;
   }
 
-  const finalItems = Array.from(dedup.values()).slice(0, 10);
-  if (finalItems.length === 0) return html;
-
-  const block =
-    `<h2>References</h2>` +
-    `<ol>` +
-    finalItems
-      .map((it) => `<li><a href="${it.url}" target="_blank" rel="noopener noreferrer">${this.escapeHtml(it.title)}</a></li>`)
-      .join('') +
-    `</ol>`;
-
-  return `${html}\n\n${block}`;
-}
-
-private escapeHtml(s: string): string {
-  return (s || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+  private escapeHtml(s: string): string {
+    return (s || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
 }
 
 export function createOrchestrator(config: OrchestratorConfig): EnterpriseContentOrchestrator {
