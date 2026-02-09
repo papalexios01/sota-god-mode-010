@@ -394,7 +394,7 @@ export function ContentStrategy() {
       const title = slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
       
       addContentItem({
-        title: `Rewrite: ${title}`,
+        title: title,
         type: 'refresh',
         status: 'pending',
         primaryKeyword: title.toLowerCase(),

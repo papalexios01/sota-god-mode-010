@@ -154,8 +154,8 @@ export class SOTAInternalLinkEngine {
       const tokenMatches = this.tokenizeWithPositions(s.text, s.startIndex);
       if (tokenMatches.length < 3) continue;
 
-      for (let i = 0; i <= tokenMatches.length - 3; i++) {
-        for (let len = 3; len <= 7; len++) {
+      for (let i = 0; i <= tokenMatches.length - 2; i++) {
+        for (let len = 2; len <= 8; len++) {
           const j = i + len - 1;
           if (j >= tokenMatches.length) break;
 
@@ -167,7 +167,7 @@ export class SOTAInternalLinkEngine {
           // Only consider pages that share at least one non-generic token with the anchor
           const rawAnchorTokens = span.map(t => t.token);
           const meaningfulAnchorTokens = rawAnchorTokens.filter(t => this.isMeaningfulToken(t));
-          if (meaningfulAnchorTokens.length < 3) continue;
+          if (meaningfulAnchorTokens.length < 2) continue;
 
           const pageHitCounts = this.getCandidatePageHitCounts(meaningfulAnchorTokens);
           if (pageHitCounts.size === 0) continue;
@@ -182,7 +182,7 @@ export class SOTAInternalLinkEngine {
             const hasSpecificToken = overlapMeaningful.some(t => (this.tokenIdf.get(t) ?? 0) >= 1.55);
 
             // Quality gates: avoid "best" matching everything.
-            if (overlapMeaningfulCount < 2 && titleRun < 2 && !hasSpecificToken) continue;
+            if (overlapMeaningfulCount < 1 && titleRun < 1 && !hasSpecificToken) continue;
 
             const score = this.scoreAnchorForTopic(
               meaningfulAnchorTokens,
@@ -191,7 +191,7 @@ export class SOTAInternalLinkEngine {
               overlapMeaningfulCount,
               titleRun
             );
-            if (score < 70) continue;
+            if (score < 55) continue;
 
             const startIndex = span[0].startIndex;
             const endIndex = span[span.length - 1].endIndex;
@@ -234,8 +234,8 @@ export class SOTAInternalLinkEngine {
   private isValidAnchor(text: string): boolean {
     const words = text.split(/\s+/);
     
-    // Must be 3-7 words
-    if (words.length < 3 || words.length > 7) return false;
+    // Must be 2-8 words (2-word anchors allowed when topically strong)
+    if (words.length < 2 || words.length > 8) return false;
     
     // Must not start/end with a stop word (anchors should be self-contained concepts)
     const first = words[0]?.toLowerCase();
@@ -248,13 +248,15 @@ export class SOTAInternalLinkEngine {
       const t = w.toLowerCase();
       return /[a-z]/i.test(w) && this.isMeaningfulToken(t);
     });
-    if (meaningfulWords.length < 3) return false;
+    if (meaningfulWords.length < 2) return false;
 
     // Ban obvious junk anchors
     const lower = text.toLowerCase();
     const banned = [
       'click here', 'learn more', 'read more', 'this article', 'this guide',
-      'in this post', 'in this guide', 'in this article'
+      'in this post', 'in this guide', 'in this article', 'check out',
+      'find out', 'take a look', 'see more', 'see our', 'visit our',
+      'you can', 'we have', 'here is', 'there are', 'this is'
     ];
     if (banned.some(b => lower.includes(b))) return false;
     
@@ -262,7 +264,7 @@ export class SOTAInternalLinkEngine {
     if (/[<>{}[\]|\\^]/.test(text)) return false;
     
     // Not too short or too long
-    if (text.length < 15 || text.length > 70) return false;
+    if (text.length < 10 || text.length > 80) return false;
     
     return true;
   }
@@ -278,11 +280,11 @@ export class SOTAInternalLinkEngine {
 
     // Token overlap (IDF-weighted) = relevance
     const overlap = meaningfulAnchorTokens.filter(t => topic.tokenSet.has(t));
-    const overlapScore = overlap.reduce((sum, t) => sum + ((this.tokenIdf.get(t) ?? 0) * 22), 0);
+    const overlapScore = overlap.reduce((sum, t) => sum + ((this.tokenIdf.get(t) ?? 0) * 28), 0);
     score += overlapScore;
 
     // Title phrase match = strong intent alignment
-    score += Math.min(60, titleRun * 18 + Math.max(0, titleRun - 1) * 10);
+    score += Math.min(75, titleRun * 22 + Math.max(0, titleRun - 1) * 14);
 
     // Multi-token overlap bonus
     if (overlapCount >= 3) score += 18;

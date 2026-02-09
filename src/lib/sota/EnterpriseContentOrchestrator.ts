@@ -496,18 +496,39 @@ Now continue:`;
 
     this.log(`Starting content generation for: ${options.keyword}`);
 
-    // Phase 1: Parallel Research
+    // Phase 1: Parallel Research (fault-tolerant — each service can fail independently)
     this.log('Phase 1: Research & Analysis...');
-    const [serpAnalysis, videos, references, neuron] = await Promise.all([
-      this.serpAnalyzer.analyze(options.keyword, this.config.targetCountry),
-      options.includeVideos !== false
-        ? this.youtubeService.getRelevantVideos(options.keyword, options.contentType)
-        : Promise.resolve([]),
-      options.includeReferences !== false
-        ? this.referenceService.getTopReferences(options.keyword)
-        : Promise.resolve([]),
-      this.maybeInitNeuronWriter(options.keyword, options),
-    ]);
+
+    let serpAnalysis: SERPAnalysis;
+    let videos: YouTubeVideo[] = [];
+    let references: Reference[] = [];
+    let neuron: NeuronBundle | null = null;
+
+    try {
+      const results = await Promise.allSettled([
+        this.serpAnalyzer.analyze(options.keyword, this.config.targetCountry),
+        options.includeVideos !== false
+          ? this.youtubeService.getRelevantVideos(options.keyword, options.contentType)
+          : Promise.resolve([]),
+        options.includeReferences !== false
+          ? this.referenceService.getTopReferences(options.keyword)
+          : Promise.resolve([]),
+        this.maybeInitNeuronWriter(options.keyword, options),
+      ]);
+
+      serpAnalysis = results[0].status === 'fulfilled' ? results[0].value : this.getDefaultSerpAnalysis(options.keyword);
+      videos = results[1].status === 'fulfilled' ? results[1].value : [];
+      references = results[2].status === 'fulfilled' ? results[2].value : [];
+      neuron = results[3].status === 'fulfilled' ? results[3].value : null;
+
+      if (results[0].status === 'rejected') this.log(`⚠️ SERP analysis failed (using defaults): ${results[0].reason}`);
+      if (results[1].status === 'rejected') this.log(`⚠️ YouTube fetch failed: ${results[1].reason}`);
+      if (results[2].status === 'rejected') this.log(`⚠️ References fetch failed: ${results[2].reason}`);
+      if (results[3].status === 'rejected') this.log(`⚠️ NeuronWriter init failed: ${results[3].reason}`);
+    } catch (e) {
+      this.log(`⚠️ Phase 1 failed entirely (using defaults): ${e}`);
+      serpAnalysis = this.getDefaultSerpAnalysis(options.keyword);
+    }
 
     this.log(`Found ${videos.length} videos, ${references.length} references`);
     this.log(`SERP Analysis: ${serpAnalysis.userIntent} intent, ${serpAnalysis.recommendedWordCount} words recommended`);
@@ -515,7 +536,6 @@ Now continue:`;
     // Phase 2: Content Generation
     this.log('Phase 2: AI Content Generation...');
 
-    // Prefer NeuronWriter recommended length when available
     const targetWordCount =
       options.targetWordCount ||
       neuron?.analysis?.recommended_length ||
@@ -524,22 +544,43 @@ Now continue:`;
 
     const genOptions: GenerationOptions = { ...options, targetWordCount };
 
-    const title = options.title || await this.generateTitle(options.keyword, serpAnalysis);
+    let title = options.title || options.keyword;
+    try {
+      if (!options.title) {
+        title = await this.generateTitle(options.keyword, serpAnalysis);
+      }
+    } catch (e) {
+      this.log(`⚠️ Title generation failed (using keyword): ${e}`);
+      title = options.title || options.keyword;
+    }
 
-    // Pass the FULL analysis to get all keywords, entities, and headings
     const neuronTermPrompt = neuron
       ? neuron.service.formatTermsForPrompt(neuron.analysis.terms || [], neuron.analysis)
       : undefined;
 
-    const content = await this.generateMainContent(
-      options.keyword,
-      title,
-      serpAnalysis,
-      videos,
-      references,
-      genOptions,
-      neuronTermPrompt
-    );
+    let content: string;
+    try {
+      content = await this.generateMainContent(
+        options.keyword,
+        title,
+        serpAnalysis,
+        videos,
+        references,
+        genOptions,
+        neuronTermPrompt
+      );
+    } catch (genError) {
+      const msg = genError instanceof Error ? genError.message : String(genError);
+      this.log(`❌ AI content generation failed: ${msg}`);
+      throw new Error(`AI content generation failed: ${msg}. Check your API key and model configuration.`);
+    }
+
+    if (!content || content.trim().length < 100) {
+      this.log('❌ AI returned empty or near-empty content');
+      throw new Error('AI model returned empty content. Check your API key, model selection, and ensure the model supports long-form generation.');
+    }
+
+    this.log(`Phase 2 complete: ${this.countWordsFromHtml(content)} words generated`);
 
     // ═══════════════════════════════════════════════════════════════════
     // FAULT-TOLERANT POST-PROCESSING PIPELINE
@@ -1034,7 +1075,18 @@ Output ONLY the title, nothing else.`;
 
     // ULTRA-PREMIUM CONTENT GENERATION PROMPT - ALEX HORMOZI x TIM FERRISS STYLE
     // TARGET: 90%+ SCORES IN ALL CATEGORIES (Readability, SEO, E-E-A-T, Uniqueness, Accuracy)
-    const systemPrompt = `You are the ULTIMATE content strategist—a fusion of Alex Hormozi's no-BS directness and Tim Ferriss's experimental curiosity. Your content MUST score 90%+ in ALL quality metrics: Readability, SEO, E-E-A-T, Uniqueness, and Accuracy.
+    const systemPrompt = `You write like a real person who's done the work. Not an AI. Not a content mill. A real expert who's been in the trenches.
+
+Your voice: Alex Hormozi meets Tim Ferriss. Blunt. Data-driven. Zero fluff. You write like you're explaining something to a smart friend over coffee — casual but packed with substance.
+
+GOLDEN RULES:
+- Every single sentence must EARN its place. If it doesn't teach, prove, or move the reader — delete it.
+- Write at a 6th-grade reading level. Short sentences. Simple words. Your grandma should understand it.
+- Use the "So what?" test: after every paragraph, ask "so what?" — if there's no clear answer, rewrite it.
+- Front-load value. The first 50 words must deliver an insight or answer. No throat-clearing intros.
+- Break up walls of text. Max 2-3 sentences per paragraph. Use whitespace like a weapon.
+- Contractions ALWAYS: don't, won't, can't, it's, that's, you'll, they've, doesn't, isn't, we're
+- Write like you talk. Read it out loud. If it sounds robotic, rewrite it.
 
 🎯 CRITICAL QUALITY TARGETS (MUST ACHIEVE ALL):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1318,15 +1370,30 @@ EMBED THIS VIDEO IN THE MIDDLE OF THE ARTICLE:
 9. Include specific methodologies: "Using the [Protocol Name] methodology..." / "Based on meta-analysis of [X] studies..."
 10. Acknowledge limitations: "One caveat is..." / "This works best for..." - builds trust
 
-🎯 HUMAN VOICE REQUIREMENTS (MANDATORY):
-1. Use contractions: don't, won't, can't, it's, that's, we're, you'll
-2. Start paragraphs with: "Look," "Here's the thing:" "Real talk:" "I'll be honest:"
-3. Include rhetorical questions: "Sound familiar?" "See the pattern?"
-4. Use incomplete sentences. For emphasis. Like this.
-5. Show emotion: "This drives me crazy..." / "I love this because..."
-6. Admit uncertainty: "I could be wrong, but..."
+🎯 HUMAN VOICE REQUIREMENTS (MANDATORY — THIS IS THE #1 PRIORITY):
+1. Contractions EVERYWHERE — don't, won't, can't, it's, that's, we're, you'll, they've — NEVER use "do not", "will not", "cannot" etc.
+2. Paragraph openers MUST vary — rotate between: "Look," / "Here's the thing:" / "Real talk:" / "I'll be honest:" / "Confession:" / "Truth bomb:" / "Hot take:" / "Quick story:" / "Unpopular opinion:" / "Fun fact:"
+3. Rhetorical questions every 200-300 words: "Sound familiar?" / "See what I mean?" / "Makes sense, right?" / "Wild, right?"
+4. Fragments. For emphasis. Like this. Often.
+5. Show real emotion: "This drives me absolutely nuts..." / "I love this approach because..." / "Honestly? This changed everything for me."
+6. Admit uncertainty: "I could be totally wrong here, but..." / "Take this with a grain of salt..."
+7. Use analogies and metaphors from everyday life: "It's like trying to fill a bathtub with the drain open" / "Think of it like compound interest for your health"
+8. Address the reader directly: "You've probably tried this..." / "If you're anything like me..." / "Here's where most people screw up..."
+9. Include micro-stories: "Last month, I talked to someone who..." / "A friend of mine tried this and..."
+10. Transitions should be conversational: "Anyway," / "Moving on," / "Now here's where it gets interesting..." / "But wait — there's more to this..."
+11. NEVER use these AI phrases: "In conclusion", "Furthermore", "Moreover", "It is important to note", "In today's world", "When it comes to", "In order to", "It's worth noting"
+12. End sections with a hook to the next: "But that's just the beginning..." / "The next part is even better..." / "And this leads us to..."
 
-Write the complete article now. Make it so valuable that readers bookmark it and share it with friends. REMEMBER: Target 90%+ in ALL metrics!`;
+Write the complete article now. 
+
+FINAL CHECK BEFORE YOU OUTPUT:
+- Read every paragraph out loud. Does it sound like a human wrote it? If not, rewrite it.
+- Is every sentence under 20 words on average? If not, break them up.
+- Did you use contractions in EVERY possible place? Search for "do not", "will not", "cannot", "is not" — replace them ALL.
+- Does every section deliver genuine, actionable value? No padding. No filler. No "in today's world" garbage.
+- Would YOU bookmark this article? If not, it's not good enough.
+
+REMEMBER: The reader should feel like they're getting advice from a smart, experienced friend — not reading a textbook or an AI-generated article.`;
 
     let result;
     if (this.config.useConsensus && !neuronTermPrompt && this.engine.getAvailableModels().length > 1) { // speed+determinism: disable consensus when NeuronWriter is active
@@ -1482,6 +1549,19 @@ Output ONLY the meta description, nothing else.`;
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-')
       .slice(0, 60);
+  }
+
+  private getDefaultSerpAnalysis(keyword: string): SERPAnalysis {
+    return {
+      avgWordCount: 2000,
+      commonHeadings: [`What is ${keyword}?`, `How to ${keyword}`, `Benefits of ${keyword}`, `Best Practices`, `FAQ`],
+      contentGaps: [],
+      userIntent: 'informational',
+      semanticEntities: [],
+      topCompetitors: [],
+      recommendedWordCount: 2500,
+      recommendedHeadings: [`What is ${keyword}?`, `How ${keyword} Works`, `Key Benefits`, `Getting Started`, `Best Practices`, `Common Mistakes to Avoid`, `FAQ`, `Conclusion`]
+    };
   }
 
   private buildEEATProfile(references: Reference[]): EEATProfile {

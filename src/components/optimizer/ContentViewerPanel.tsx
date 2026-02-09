@@ -122,11 +122,13 @@ export function ContentViewerPanel({
   const handlePublishToWordPress = async () => {
     if (!item || !content) return;
     
-    // Use the SEO title if available, otherwise fall back to the display title
-    const effectiveSeoTitle = generatedContent?.seoTitle || item.title.replace(/^\s*rewrite\s*:\s*/i, '').trim();
+    // Clean title: strip any "Rewrite:" prefix and prefer the SEO-optimized title
+    const cleanTitle = item.title.replace(/^\s*rewrite\s*:\s*/i, '').trim();
+    const effectiveSeoTitle = generatedContent?.seoTitle || cleanTitle;
+    const wpTitle = generatedContent?.seoTitle || generatedContent?.title || cleanTitle;
     
     const result = await publish(
-      item.title,
+      wpTitle,
       content,
       {
         status: publishStatus,
