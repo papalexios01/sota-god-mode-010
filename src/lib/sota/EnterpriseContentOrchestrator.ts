@@ -41,16 +41,16 @@ function convertMarkdownToHTML(content: string): string {
   html = html.replace(/^#\s+([^\n<]+)$/gm, '<h1>$1</h1>');
 
   // H2: ## heading - be careful not to match ### 
-  html = html.replace(/^## ([^\n#<]+)$/gm, '<h2 style="color: #1f2937; font-size: 28px; font-weight: 800; margin: 48px 0 24px 0; padding-bottom: 12px; border-bottom: 3px solid #10b981;">$1</h2>');
-  html = html.replace(/^##\s+([^\n#<]+)$/gm, '<h2 style="color: #1f2937; font-size: 28px; font-weight: 800; margin: 48px 0 24px 0; padding-bottom: 12px; border-bottom: 3px solid #10b981;">$1</h2>');
+  html = html.replace(/^## ([^\n#<]+)$/gm, '<h2 style="color: #0f172a; font-size: 30px; font-weight: 900; margin: 56px 0 24px 0; padding-bottom: 14px; border-bottom: 4px solid #10b981; letter-spacing: -0.025em; line-height: 1.2;">$1</h2>');
+  html = html.replace(/^##\s+([^\n#<]+)$/gm, '<h2 style="color: #0f172a; font-size: 30px; font-weight: 900; margin: 56px 0 24px 0; padding-bottom: 14px; border-bottom: 4px solid #10b981; letter-spacing: -0.025em; line-height: 1.2;">$1</h2>');
 
   // H3: ### heading
-  html = html.replace(/^### ([^\n#<]+)$/gm, '<h3 style="color: #374151; font-size: 22px; font-weight: 700; margin: 36px 0 16px 0;">$1</h3>');
-  html = html.replace(/^###\s+([^\n#<]+)$/gm, '<h3 style="color: #374151; font-size: 22px; font-weight: 700; margin: 36px 0 16px 0;">$1</h3>');
+  html = html.replace(/^### ([^\n#<]+)$/gm, '<h3 style="color: #1e293b; font-size: 23px; font-weight: 800; margin: 40px 0 16px 0; letter-spacing: -0.02em; line-height: 1.3;">$1</h3>');
+  html = html.replace(/^###\s+([^\n#<]+)$/gm, '<h3 style="color: #1e293b; font-size: 23px; font-weight: 800; margin: 40px 0 16px 0; letter-spacing: -0.02em; line-height: 1.3;">$1</h3>');
 
   // H4: #### heading
-  html = html.replace(/^#### ([^\n#<]+)$/gm, '<h4 style="color: #4b5563; font-size: 18px; font-weight: 700; margin: 28px 0 12px 0;">$1</h4>');
-  html = html.replace(/^####\s+([^\n#<]+)$/gm, '<h4 style="color: #4b5563; font-size: 18px; font-weight: 700; margin: 28px 0 12px 0;">$1</h4>');
+  html = html.replace(/^#### ([^\n#<]+)$/gm, '<h4 style="color: #334155; font-size: 19px; font-weight: 700; margin: 32px 0 12px 0; line-height: 1.3;">$1</h4>');
+  html = html.replace(/^####\s+([^\n#<]+)$/gm, '<h4 style="color: #334155; font-size: 19px; font-weight: 700; margin: 32px 0 12px 0; line-height: 1.3;">$1</h4>');
 
   // Convert bold markdown **text** to <strong> (only if not already HTML)
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
@@ -60,7 +60,7 @@ function convertMarkdownToHTML(content: string): string {
   html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
 
   // Convert markdown links [text](url) to <a> tags
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: #059669; text-decoration: underline;">$1</a>');
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: #059669; text-decoration: underline; text-underline-offset: 3px; font-weight: 600; transition: color 0.2s;">$1</a>');
 
   // Convert markdown lists to HTML lists
   // Unordered lists: - item or * item
@@ -98,7 +98,7 @@ function convertMarkdownToHTML(content: string): string {
       processedLines.push(lines[i]);
     } else {
       // Wrap in paragraph tag
-      processedLines.push(`<p style="color: #374151; font-size: 17px; line-height: 1.9; margin: 20px 0;">${line}</p>`);
+      processedLines.push(`<p style="color: #334155; font-size: 18px; line-height: 1.8; margin: 0 0 20px 0;">${line}</p>`);
     }
   }
 
@@ -139,9 +139,9 @@ function ensureProperHTMLStructure(content: string): string {
 
   html = html.replace(/<p[^>]*>\s*<\/p>/g, '');
 
-  html = html.replace(/<h2>([^<]+)<\/h2>/g, '<h2 style="color: #1f2937; font-size: 28px; font-weight: 800; margin: 48px 0 24px 0; padding-bottom: 12px; border-bottom: 3px solid #10b981;">$1</h2>');
-  html = html.replace(/<h3>([^<]+)<\/h3>/g, '<h3 style="color: #374151; font-size: 22px; font-weight: 700; margin: 36px 0 16px 0;">$1</h3>');
-  html = html.replace(/<h4>([^<]+)<\/h4>/g, '<h4 style="color: #4b5563; font-size: 18px; font-weight: 700; margin: 28px 0 12px 0;">$1</h4>');
+  html = html.replace(/<h2>([^<]+)<\/h2>/g, '<h2 style="color: #0f172a; font-size: 30px; font-weight: 900; margin: 56px 0 24px 0; padding-bottom: 14px; border-bottom: 4px solid #10b981; letter-spacing: -0.025em; line-height: 1.2;">$1</h2>');
+  html = html.replace(/<h3>([^<]+)<\/h3>/g, '<h3 style="color: #1e293b; font-size: 23px; font-weight: 800; margin: 40px 0 16px 0; letter-spacing: -0.02em; line-height: 1.3;">$1</h3>');
+  html = html.replace(/<h4>([^<]+)<\/h4>/g, '<h4 style="color: #334155; font-size: 19px; font-weight: 700; margin: 32px 0 12px 0; line-height: 1.3;">$1</h4>');
 
   const headingRegex = /<h([1-6])[^>]*>/gi;
   let match: RegExpExecArray | null;
@@ -168,20 +168,18 @@ function ensureProperHTMLStructure(content: string): string {
     }
   }
 
-  // Premium WordPress typography wrapper (mobile-first, readable everywhere)
   if (!html.includes('data-premium-wp')) {
     const wrapperStart =
-      '<div data-premium-wp="true" style="max-width: 920px; margin: 0 auto; padding: 18px 16px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; line-height: 1.65; color: #111827;">';
+      '<div data-premium-wp="true" style="max-width: 780px; margin: 0 auto; padding: 24px 20px; font-family: \'Inter\', ui-sans-serif, system-ui, -apple-system, \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif; line-height: 1.75; color: #1e293b; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;">';
     const wrapperEnd = '</div>';
     html = `${wrapperStart}\n${html}\n${wrapperEnd}`;
   }
 
-  // Upgrade paragraphs/lists for scanability
   html = html
-    .replace(/<p>/g, '<p style="font-size: 18px; margin: 0 0 16px 0;">')
-    .replace(/<ul>/g, '<ul style="margin: 0 0 18px 22px; padding: 0;">')
-    .replace(/<ol>/g, '<ol style="margin: 0 0 18px 22px; padding: 0;">')
-    .replace(/<li>/g, '<li style="margin: 0 0 10px 0;">');
+    .replace(/<p>/g, '<p style="font-size: 18px; margin: 0 0 20px 0; line-height: 1.8; color: #334155;">')
+    .replace(/<ul>/g, '<ul style="margin: 0 0 24px 0; padding-left: 24px; list-style: none;">')
+    .replace(/<ol>/g, '<ol style="margin: 0 0 24px 0; padding-left: 24px; counter-reset: item;">')
+    .replace(/<li>/g, '<li style="margin: 0 0 12px 0; padding-left: 8px; line-height: 1.75; position: relative;">');
 
   return html;
 }
@@ -1185,106 +1183,124 @@ GOLDEN RULES:
 1. BLUF HOOK (first 50 words): 
 Start with the ANSWER or a bold statement. No "welcome to" garbage. Give them the gold immediately.
 
-2. KEY TAKEAWAYS BOX (right after hook - premium modern design):
-<div style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border: 2px solid #10b981; border-radius: 16px; padding: 28px 32px; margin: 36px 0; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.15);">
-  <h3 style="color: #047857; margin: 0 0 20px 0; font-size: 24px; font-weight: 800; display: flex; align-items: center; gap: 10px;">🎯 The Bottom Line (TL;DR)</h3>
-  <ul style="color: #1f2937; margin: 0; padding-left: 0; font-size: 17px; line-height: 2; list-style: none;">
-    <li style="margin-bottom: 12px; padding-left: 28px; position: relative;"><span style="position: absolute; left: 0; color: #10b981; font-weight: 700;">✓</span> <strong>Key insight:</strong> Actionable point here</li>
-    <li style="margin-bottom: 12px; padding-left: 28px; position: relative;"><span style="position: absolute; left: 0; color: #10b981; font-weight: 700;">✓</span> <strong>Key insight:</strong> Actionable point here</li>
-    <li style="margin-bottom: 0; padding-left: 28px; position: relative;"><span style="position: absolute; left: 0; color: #10b981; font-weight: 700;">✓</span> <strong>Key insight:</strong> Actionable point here</li>
+2. KEY TAKEAWAYS BOX (right after hook):
+<div style="background: #ffffff; border: 2px solid #10b981; border-radius: 20px; padding: 32px 36px; margin: 40px 0; box-shadow: 0 8px 32px rgba(16, 185, 129, 0.12), 0 1px 3px rgba(0,0,0,0.04); position: relative; overflow: hidden;">
+  <div style="position: absolute; top: 0; left: 0; right: 0; height: 5px; background: linear-gradient(90deg, #10b981 0%, #06b6d4 50%, #8b5cf6 100%);"></div>
+  <h3 style="color: #0f172a; margin: 8px 0 24px 0; font-size: 22px; font-weight: 900; display: flex; align-items: center; gap: 12px; letter-spacing: -0.02em;">🎯 The Bottom Line</h3>
+  <ul style="color: #1e293b; margin: 0; padding-left: 0; font-size: 17px; line-height: 1.9; list-style: none;">
+    <li style="margin-bottom: 14px; padding: 12px 16px 12px 44px; position: relative; background: #f0fdf4; border-radius: 10px;"><span style="position: absolute; left: 14px; top: 13px; color: #10b981; font-weight: 800; font-size: 18px;">✓</span> <strong>Key insight:</strong> Actionable point here</li>
+    <li style="margin-bottom: 14px; padding: 12px 16px 12px 44px; position: relative; background: #f0fdf4; border-radius: 10px;"><span style="position: absolute; left: 14px; top: 13px; color: #10b981; font-weight: 800; font-size: 18px;">✓</span> <strong>Key insight:</strong> Actionable point here</li>
+    <li style="margin-bottom: 0; padding: 12px 16px 12px 44px; position: relative; background: #f0fdf4; border-radius: 10px;"><span style="position: absolute; left: 14px; top: 13px; color: #10b981; font-weight: 800; font-size: 18px;">✓</span> <strong>Key insight:</strong> Actionable point here</li>
   </ul>
 </div>
 
-3. PRO TIP BOXES (4-6 throughout - modern gradient design):
-<div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-left: 5px solid #3b82f6; padding: 24px 28px; margin: 32px 0; border-radius: 0 12px 12px 0; box-shadow: 0 2px 10px rgba(59, 130, 246, 0.1);">
-  <strong style="color: #1e40af; font-size: 18px; display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">💡 Pro Tip</strong>
-  <p style="color: #1f2937; font-size: 17px; margin: 0; line-height: 1.8;">Your actionable insider knowledge here.</p>
+3. PRO TIP BOXES (4-6 throughout):
+<div style="background: #ffffff; border: 1px solid #e0e7ff; border-left: 5px solid #6366f1; padding: 24px 28px; margin: 36px 0; border-radius: 0 16px 16px 0; box-shadow: 0 4px 20px rgba(99, 102, 241, 0.08);">
+  <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px;">
+    <span style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; width: 32px; height: 32px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);">💡</span>
+    <strong style="color: #3730a3; font-size: 17px; font-weight: 800; letter-spacing: -0.01em;">Pro Tip</strong>
+  </div>
+  <p style="color: #334155; font-size: 17px; margin: 0; line-height: 1.8;">Your actionable insider knowledge here.</p>
 </div>
 
-4. WARNING BOXES (when relevant - attention-grabbing design):
-<div style="background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); border-left: 5px solid #ef4444; padding: 24px 28px; margin: 32px 0; border-radius: 0 12px 12px 0; box-shadow: 0 2px 10px rgba(239, 68, 68, 0.1);">
-  <strong style="color: #b91c1c; font-size: 18px; display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">⚠️ Warning</strong>
-  <p style="color: #1f2937; font-size: 17px; margin: 0; line-height: 1.8;">Critical warning that saves them from a costly mistake.</p>
+4. WARNING BOXES (when relevant):
+<div style="background: #ffffff; border: 1px solid #fecaca; border-left: 5px solid #ef4444; padding: 24px 28px; margin: 36px 0; border-radius: 0 16px 16px 0; box-shadow: 0 4px 20px rgba(239, 68, 68, 0.08);">
+  <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px;">
+    <span style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; width: 32px; height: 32px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);">⚠️</span>
+    <strong style="color: #991b1b; font-size: 17px; font-weight: 800;">Warning</strong>
+  </div>
+  <p style="color: #334155; font-size: 17px; margin: 0; line-height: 1.8;">Critical warning that saves them from a costly mistake.</p>
 </div>
 
-5. DATA COMPARISON TABLE (modern, clean design):
-<div style="margin: 36px 0; overflow-x: auto; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08);">
-  <table style="width: 100%; border-collapse: collapse; background: white;">
+5. DATA COMPARISON TABLE:
+<div style="margin: 40px 0; overflow-x: auto; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 24px rgba(0,0,0,0.06);">
+  <table style="width: 100%; border-collapse: collapse; background: #ffffff;">
     <thead>
-      <tr style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);">
-        <th style="padding: 18px 24px; text-align: left; color: #047857; font-weight: 800; font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 3px solid #10b981;">Column 1</th>
-        <th style="padding: 18px 24px; text-align: left; color: #047857; font-weight: 800; font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 3px solid #10b981;">Column 2</th>
-        <th style="padding: 18px 24px; text-align: left; color: #047857; font-weight: 800; font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 3px solid #10b981;">Column 3</th>
+      <tr>
+        <th style="padding: 18px 24px; text-align: left; color: #0f172a; font-weight: 800; font-size: 14px; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 3px solid #10b981; background: #f8fafc;">Column 1</th>
+        <th style="padding: 18px 24px; text-align: left; color: #0f172a; font-weight: 800; font-size: 14px; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 3px solid #10b981; background: #f8fafc;">Column 2</th>
+        <th style="padding: 18px 24px; text-align: left; color: #0f172a; font-weight: 800; font-size: 14px; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 3px solid #10b981; background: #f8fafc;">Column 3</th>
       </tr>
     </thead>
     <tbody>
-      <tr style="background: #ffffff;">
-        <td style="padding: 16px 24px; color: #374151; font-size: 16px; border-bottom: 1px solid #e5e7eb;">Data</td>
-        <td style="padding: 16px 24px; color: #374151; font-size: 16px; border-bottom: 1px solid #e5e7eb;">Data</td>
-        <td style="padding: 16px 24px; color: #059669; font-size: 16px; border-bottom: 1px solid #e5e7eb; font-weight: 700;">Highlight ✓</td>
+      <tr>
+        <td style="padding: 16px 24px; color: #334155; font-size: 16px; border-bottom: 1px solid #f1f5f9;">Data</td>
+        <td style="padding: 16px 24px; color: #334155; font-size: 16px; border-bottom: 1px solid #f1f5f9;">Data</td>
+        <td style="padding: 16px 24px; color: #059669; font-size: 16px; border-bottom: 1px solid #f1f5f9; font-weight: 700;">Highlight ✓</td>
       </tr>
-      <tr style="background: #f9fafb;">
-        <td style="padding: 16px 24px; color: #374151; font-size: 16px; border-bottom: 1px solid #e5e7eb;">Data</td>
-        <td style="padding: 16px 24px; color: #374151; font-size: 16px; border-bottom: 1px solid #e5e7eb;">Data</td>
-        <td style="padding: 16px 24px; color: #374151; font-size: 16px; border-bottom: 1px solid #e5e7eb;">Data</td>
+      <tr>
+        <td style="padding: 16px 24px; color: #334155; font-size: 16px; border-bottom: 1px solid #f1f5f9; background: #fafbfc;">Data</td>
+        <td style="padding: 16px 24px; color: #334155; font-size: 16px; border-bottom: 1px solid #f1f5f9; background: #fafbfc;">Data</td>
+        <td style="padding: 16px 24px; color: #334155; font-size: 16px; border-bottom: 1px solid #f1f5f9; background: #fafbfc;">Data</td>
       </tr>
     </tbody>
   </table>
 </div>
 
-6. NUMBERED STEP BOXES (modern step-by-step design):
-<div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border: 2px solid #e2e8f0; border-radius: 16px; padding: 28px; margin: 32px 0; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-  <div style="display: flex; align-items: center; gap: 18px; margin-bottom: 16px;">
-    <span style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; width: 44px; height: 44px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);">1</span>
-    <strong style="color: #1f2937; font-size: 20px; font-weight: 800;">Step Title Here</strong>
+6. NUMBERED STEP BOXES:
+<div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 28px 32px; margin: 32px 0; box-shadow: 0 4px 20px rgba(0,0,0,0.04); position: relative;">
+  <div style="display: flex; align-items: flex-start; gap: 20px;">
+    <span style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; width: 48px; height: 48px; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; font-weight: 900; font-size: 20px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3); flex-shrink: 0;">1</span>
+    <div style="flex: 1;">
+      <strong style="color: #0f172a; font-size: 20px; font-weight: 800; display: block; margin-bottom: 8px; letter-spacing: -0.01em;">Step Title Here</strong>
+      <p style="color: #475569; margin: 0; font-size: 17px; line-height: 1.8;">Step description with actionable details.</p>
+    </div>
   </div>
-  <p style="color: #4b5563; margin: 0; padding-left: 62px; font-size: 17px; line-height: 1.8;">Step description with actionable details.</p>
 </div>
 
-7. EXPERT QUOTE BOXES (premium credibility design):
-<blockquote style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-left: 5px solid #10b981; padding: 28px 32px; margin: 36px 0; border-radius: 0 16px 16px 0; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.1); position: relative;">
-  <p style="color: #1f2937; margin: 0; font-size: 19px; line-height: 1.8; font-style: italic;">"Powerful quote that reinforces your point and adds expert credibility..."</p>
-  <footer style="color: #047857; margin-top: 16px; font-size: 15px; font-style: normal; font-weight: 700; display: flex; align-items: center; gap: 8px;">
-    <span style="background: #10b981; width: 8px; height: 8px; border-radius: 50%; display: inline-block;"></span>
+7. EXPERT QUOTE BOXES:
+<blockquote style="background: #ffffff; border: 1px solid #d1fae5; border-left: 5px solid #10b981; padding: 28px 32px; margin: 40px 0; border-radius: 0 16px 16px 0; box-shadow: 0 4px 20px rgba(16, 185, 129, 0.08); position: relative;">
+  <div style="position: absolute; top: -14px; left: 24px; background: #10b981; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 900; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);">❝</div>
+  <p style="color: #1e293b; margin: 0; font-size: 19px; line-height: 1.8; font-style: italic; font-weight: 500;">"Powerful quote that reinforces your point and adds expert credibility..."</p>
+  <footer style="color: #047857; margin-top: 16px; font-size: 15px; font-style: normal; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+    <span style="width: 36px; height: 2px; background: #10b981; display: inline-block;"></span>
     Dr. Expert Name, PhD — Harvard Medical School
   </footer>
 </blockquote>
 
-8. STAT HIGHLIGHT BOX (eye-catching metric display):
-<div style="background: linear-gradient(135deg, #f0fdf4 0%, #d1fae5 100%); border: 2px solid #10b981; border-radius: 16px; padding: 28px; margin: 36px 0; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.15);">
-  <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 16px; padding: 20px 28px; text-align: center; min-width: 120px; box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);">
-    <span style="color: white; font-size: 38px; font-weight: 900; display: block; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">87%</span>
-    <span style="color: rgba(255,255,255,0.95); font-size: 13px; text-transform: uppercase; font-weight: 600; letter-spacing: 1px;">Metric</span>
+8. STAT HIGHLIGHT BOX:
+<div style="background: #ffffff; border: 1px solid #d1fae5; border-radius: 20px; padding: 32px; margin: 40px 0; display: flex; align-items: center; gap: 28px; flex-wrap: wrap; box-shadow: 0 8px 32px rgba(16, 185, 129, 0.1);">
+  <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 18px; padding: 24px 32px; text-align: center; min-width: 130px; box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);">
+    <span style="color: white; font-size: 42px; font-weight: 900; display: block; letter-spacing: -0.03em; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">87%</span>
+    <span style="color: rgba(255,255,255,0.9); font-size: 12px; text-transform: uppercase; font-weight: 700; letter-spacing: 1.5px; margin-top: 4px; display: block;">Metric</span>
   </div>
-  <p style="color: #1f2937; margin: 0; font-size: 17px; line-height: 1.8; flex: 1; min-width: 220px;">Explanation of what this stat means and why it matters to the reader.</p>
+  <p style="color: #1e293b; margin: 0; font-size: 17px; line-height: 1.8; flex: 1; min-width: 220px;">Explanation of what this stat means and why it matters to the reader.</p>
 </div>
 
-9. FAQ SECTION (modern accordion-style design):
-<div style="background: white; border: 2px solid #e5e7eb; border-radius: 16px; margin: 24px 0; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-  <h4 style="background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%); margin: 0; padding: 20px 28px; color: #1f2937; font-size: 18px; font-weight: 700; border-bottom: 2px solid #e5e7eb; display: flex; align-items: center; gap: 12px;">
-    <span style="color: #10b981; font-size: 20px;">❓</span> Question here?
+9. FAQ SECTION:
+<div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; margin: 28px 0; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.04);">
+  <h4 style="background: #f8fafc; margin: 0; padding: 20px 28px; color: #0f172a; font-size: 18px; font-weight: 700; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: 12px;">
+    <span style="background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%); color: white; width: 28px; height: 28px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800;">Q</span> Question here?
   </h4>
   <div style="padding: 24px 28px;">
-    <p style="color: #4b5563; margin: 0; font-size: 17px; line-height: 1.8;">Direct, valuable answer without fluff. Give them exactly what they need.</p>
+    <p style="color: #475569; margin: 0; font-size: 17px; line-height: 1.8;">Direct, valuable answer without fluff. Give them exactly what they need.</p>
   </div>
 </div>
 
-10. CTA BOX (high-converting premium design):
-<div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 20px; padding: 40px; margin: 48px 0; text-align: center; box-shadow: 0 8px 30px rgba(16, 185, 129, 0.35);">
-  <h3 style="color: white; margin: 0 0 16px 0; font-size: 28px; font-weight: 900; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">🚀 Ready to Take Action?</h3>
-  <p style="color: rgba(255,255,255,0.95); margin: 0; font-size: 18px; line-height: 1.7; max-width: 600px; margin: 0 auto;">Strong call-to-action that tells them exactly what to do next. Make it impossible to ignore.</p>
+10. CTA BOX:
+<div style="background: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%); border-radius: 24px; padding: 48px 40px; margin: 56px 0; text-align: center; box-shadow: 0 12px 40px rgba(16, 185, 129, 0.3); position: relative; overflow: hidden;">
+  <div style="position: absolute; top: -60px; right: -60px; width: 180px; height: 180px; background: rgba(255,255,255,0.06); border-radius: 50%;"></div>
+  <div style="position: absolute; bottom: -40px; left: -40px; width: 120px; height: 120px; background: rgba(255,255,255,0.04); border-radius: 50%;"></div>
+  <h3 style="color: white; margin: 0 0 16px 0; font-size: 30px; font-weight: 900; letter-spacing: -0.03em; text-shadow: 0 2px 4px rgba(0,0,0,0.15); position: relative;">Ready to Take Action?</h3>
+  <p style="color: rgba(255,255,255,0.92); margin: 0 auto; font-size: 18px; line-height: 1.7; max-width: 560px; position: relative;">Strong call-to-action that tells them exactly what to do next.</p>
 </div>
 
-11. EXPERIENCE/CASE STUDY BOX (E-E-A-T first-hand experience):
-<div style="background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%); border: 2px solid #eab308; border-radius: 16px; padding: 28px 32px; margin: 36px 0; box-shadow: 0 4px 15px rgba(234, 179, 8, 0.15);">
-  <h4 style="color: #854d0e; margin: 0 0 16px 0; font-size: 20px; font-weight: 800; display: flex; align-items: center; gap: 10px;">📋 My Personal Experience</h4>
-  <p style="color: #1f2937; margin: 0; font-size: 17px; line-height: 1.8;">Share your first-hand experience, what you tested, results you achieved, and lessons learned. This builds E-E-A-T trust signals.</p>
+11. EXPERIENCE/CASE STUDY BOX:
+<div style="background: #ffffff; border: 1px solid #fde68a; border-left: 5px solid #f59e0b; padding: 28px 32px; margin: 40px 0; border-radius: 0 16px 16px 0; box-shadow: 0 4px 20px rgba(245, 158, 11, 0.08);">
+  <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px;">
+    <span style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; width: 32px; height: 32px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);">📋</span>
+    <strong style="color: #92400e; font-size: 17px; font-weight: 800;">My Personal Experience</strong>
+  </div>
+  <p style="color: #334155; margin: 0; font-size: 17px; line-height: 1.8;">Share your first-hand experience, what you tested, results you achieved, and lessons learned.</p>
 </div>
 
-12. RESEARCH/DATA BOX (E-E-A-T authority signal):
-<div style="background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border: 2px solid #8b5cf6; border-radius: 16px; padding: 28px 32px; margin: 36px 0; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.15);">
-  <h4 style="color: #5b21b6; margin: 0 0 16px 0; font-size: 20px; font-weight: 800; display: flex; align-items: center; gap: 10px;">📊 Research Findings</h4>
-  <p style="color: #1f2937; margin: 0; font-size: 17px; line-height: 1.8;">According to [Study Name, Year], researchers found that [specific finding with numbers]. This was based on [methodology/sample size].</p>
+12. RESEARCH/DATA BOX:
+<div style="background: #ffffff; border: 1px solid #ddd6fe; border-left: 5px solid #8b5cf6; padding: 28px 32px; margin: 40px 0; border-radius: 0 16px 16px 0; box-shadow: 0 4px 20px rgba(139, 92, 246, 0.08);">
+  <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px;">
+    <span style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; width: 32px; height: 32px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);">📊</span>
+    <strong style="color: #5b21b6; font-size: 17px; font-weight: 800;">Research Findings</strong>
+  </div>
+  <p style="color: #334155; margin: 0; font-size: 17px; line-height: 1.8;">According to [Study Name, Year], researchers found that [specific finding with numbers]. This was based on [methodology/sample size].</p>
 </div>
 
 🎯 OUTPUT REQUIREMENTS - CRITICAL:
