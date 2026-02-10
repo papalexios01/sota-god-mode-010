@@ -602,7 +602,7 @@ Now continue:`;
       if (options.injectLinks !== false && this.config.sitePages && this.config.sitePages.length > 0) {
         this.log(`Finding internal links from ${this.config.sitePages.length} crawled pages...`);
         this.linkEngine.updateSitePages(this.config.sitePages);
-        const linkOpportunities = this.linkEngine.generateLinkOpportunities(enhancedContent, 12);
+        const linkOpportunities = this.linkEngine.generateLinkOpportunities(enhancedContent, 15);
         if (linkOpportunities.length > 0) {
           enhancedContent = this.linkEngine.injectContextualLinks(enhancedContent, linkOpportunities);
           this.log(`✅ Injected ${linkOpportunities.length} internal links`);
@@ -1083,6 +1083,7 @@ GOLDEN RULES:
 - Use the "So what?" test: after every paragraph, ask "so what?" — if there's no clear answer, rewrite it.
 - Front-load value. The first 50 words must deliver an insight or answer. No throat-clearing intros.
 - Break up walls of text. Max 2-3 sentences per paragraph. Use whitespace like a weapon.
+- CRITICAL: Never write more than 200 words of plain text without inserting a visual HTML element (pro tip box, stat highlight, data table, blockquote, numbered step, or similar). Walls of text kill readability. Break them up with the styled HTML elements provided below.
 - Contractions ALWAYS: don't, won't, can't, it's, that's, you'll, they've, doesn't, isn't, we're
 - Write like you talk. Read it out loud. If it sounds robotic, rewrite it.
 
@@ -1316,6 +1317,15 @@ Start with the ANSWER or a bold statement. No "welcome to" garbage. Give them th
 • Every paragraph MUST deliver VALUE
 • All text must be readable on light backgrounds (use dark text colors like #1f2937, #374151, #4b5563)
 
+🔗 INTERNAL LINKING RULES (CRITICAL FOR SEO):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Internal links will be injected automatically AFTER generation — do NOT add placeholder links
+• Write naturally descriptive 3-7 word phrases throughout your content that could serve as good anchor text
+• Spread topic-relevant phrases EVENLY across ALL sections — not just the introduction or conclusion
+• Every H2 section should contain at least 2-3 natural phrases that relate to subtopics of the main keyword
+• Use specific, descriptive language rather than generic terms (e.g., "progressive overload training principles" rather than "training tips")
+• Avoid vague language — the more specific and topically rich your phrases are, the better the internal linking will be
+
 ⚠️ IF YOU OUTPUT ANY MARKDOWN SYNTAX (##, ###, **, *, -, 1., [text](url)), THE CONTENT WILL BE REJECTED!`;
 
     const prompt = `Write a ${targetWordCount}+ word article about "${keyword}".
@@ -1356,11 +1366,14 @@ ${neuronTermPrompt}
 ` : ''}
 
 ${videos.length > 0 ? `
-EMBED THIS VIDEO IN THE MIDDLE OF THE ARTICLE:
-<div style="position: relative; padding-bottom: 56.25%; height: 0; margin: 40px 0; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.4);">
-  <iframe src="https://www.youtube.com/embed/${videos[0].id}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen title="${videos[0].title}"></iframe>
+EMBED ${videos.length > 1 ? 'THESE VIDEOS' : 'THIS VIDEO'} THROUGHOUT THE ARTICLE (spread evenly between sections, not all in one place):
+${videos.slice(0, 3).map((v, i) => `
+VIDEO ${i + 1} — Place this ${i === 0 ? 'in the first third of the article' : i === 1 ? 'in the middle of the article' : 'in the final third of the article'}:
+<div style="position: relative; padding-bottom: 56.25%; height: 0; margin: 40px 0; border-radius: 20px; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,0.15); border: 1px solid #e2e8f0;">
+  <iframe src="https://www.youtube.com/embed/${v.id}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen title="${v.title}"></iframe>
 </div>
-<p style="text-align: center; color: #6b7280; font-size: 14px; margin-top: -24px; margin-bottom: 32px;">📺 <strong>${videos[0].title}</strong> by ${videos[0].channelTitle}</p>
+<p style="text-align: center; color: #6b7280; font-size: 14px; margin-top: -24px; margin-bottom: 32px;">📺 <strong>${v.title}</strong> by ${v.channelTitle}</p>
+`).join('\n')}
 ` : ''}
 
 📋 MANDATORY STRUCTURE REQUIREMENTS:
@@ -1531,13 +1544,21 @@ Output ONLY the meta description, nothing else.`;
   }
 
   private buildVideoSection(videos: YouTubeVideo[]): string {
+    const videoEmbeds = videos.slice(0, 3).map(v => `
+  <div style="margin-bottom: 28px;">
+    <div style="position: relative; padding-bottom: 56.25%; height: 0; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.12); border: 1px solid #e2e8f0;">
+      <iframe src="https://www.youtube.com/embed/${v.id}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen title="${v.title}"></iframe>
+    </div>
+    <p style="text-align: center; color: #6b7280; font-size: 14px; margin-top: 12px; margin-bottom: 0;">📺 <strong>${v.title}</strong> by ${v.channelTitle}</p>
+  </div>`).join('\n');
+
     return `
-<section class="video-resources" style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-radius: 20px; padding: 32px; margin: 40px 0; border: 2px solid #10b981; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.15);">
-  <h2 style="margin-top: 0; display: flex; align-items: center; gap: 12px; color: #1f2937; font-size: 24px; font-weight: 800;">
-    Recommended Video Resources
+<section class="video-resources" style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 20px; padding: 36px; margin: 48px 0; border: 1px solid #d1fae5; box-shadow: 0 8px 32px rgba(16, 185, 129, 0.1);">
+  <h2 style="margin-top: 0; display: flex; align-items: center; gap: 12px; color: #0f172a; font-size: 24px; font-weight: 800;">
+    📹 Recommended Video Resources
   </h2>
-  <p style="color: #4b5563; margin-bottom: 24px; font-size: 16px;">Learn more from these expert video guides:</p>
-  ${videos.map(v => this.youtubeService.formatVideoCard(v)).join('')}
+  <p style="color: #475569; margin-bottom: 28px; font-size: 16px; line-height: 1.7;">Watch these expert-curated videos for deeper insights:</p>
+  ${videoEmbeds}
 </section>
 `;
   }

@@ -20,12 +20,23 @@ import { toast } from 'sonner';
 
 function sanitizeHtml(html: string): string {
   let sanitized = html;
+  // Remove scripts
   sanitized = sanitized.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-  sanitized = sanitized.replace(/<iframe\b[^>]*>/gi, '');
-  sanitized = sanitized.replace(/<\/iframe>/gi, '');
+  // Remove ONLY non-YouTube/Vimeo iframes (preserve video embeds)
+  sanitized = sanitized.replace(/<iframe\b[^>]*>/gi, (match) => {
+    // Allow YouTube and Vimeo embeds
+    if (/src\s*=\s*["'][^"']*(?:youtube\.com\/embed|youtube-nocookie\.com\/embed|player\.vimeo\.com)/i.test(match)) {
+      return match;
+    }
+    return '';
+  });
+  // Only strip closing iframe tags for non-video iframes (keep matching pairs)
+  // We handle this by keeping all closing tags - orphaned ones are harmless
   sanitized = sanitized.replace(/<object\b[^>]*>[\s\S]*?<\/object>/gi, '');
   sanitized = sanitized.replace(/<embed\b[^>]*>/gi, '');
+  // Remove event handlers
   sanitized = sanitized.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '');
+  // Remove javascript: URLs
   sanitized = sanitized.replace(/href\s*=\s*["']?\s*javascript\s*:/gi, 'href="');
   sanitized = sanitized.replace(/src\s*=\s*["']?\s*javascript\s*:/gi, 'src="');
   return sanitized;
@@ -392,27 +403,55 @@ export function ContentViewerPanel({
           <>
             {/* Preview Tab */}
             {activeTab === 'preview' && (
-              <div className="p-8 max-w-4xl mx-auto">
-                <article 
-                  className="prose prose-invert prose-lg max-w-none
-                    prose-headings:text-foreground prose-headings:font-bold
-                    prose-h1:text-3xl prose-h1:mb-6 prose-h1:mt-8
-                    prose-h2:text-2xl prose-h2:mb-4 prose-h2:mt-8 prose-h2:text-primary
-                    prose-h3:text-xl prose-h3:mb-3 prose-h3:mt-6
-                    prose-p:text-muted-foreground prose-p:leading-relaxed prose-p:mb-4
-                    prose-a:text-primary prose-a:no-underline hover:prose-a:underline
-                    prose-strong:text-foreground prose-strong:font-semibold
-                    prose-ul:my-4 prose-li:text-muted-foreground prose-li:mb-2
-                    prose-ol:my-4
-                    prose-blockquote:border-l-primary prose-blockquote:bg-muted/30 prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:rounded-r-lg
-                    prose-code:bg-muted prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-primary
-                    prose-pre:bg-muted/50 prose-pre:border prose-pre:border-border
-                    prose-img:rounded-xl prose-img:shadow-lg
-                    prose-table:border prose-table:border-border
-                    prose-th:bg-muted/50 prose-th:p-3 prose-th:text-left
-                    prose-td:p-3 prose-td:border-t prose-td:border-border"
-                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }}
-                />
+              <div className="p-6">
+                <div className="flex items-center gap-2 mb-4 px-2">
+                  <Globe className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">WordPress Preview — This is how your content will appear on your website</span>
+                </div>
+                <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden max-w-4xl mx-auto">
+                  <div className="bg-gray-100 px-4 py-2.5 border-b border-gray-200 flex items-center gap-3">
+                    <div className="flex gap-1.5">
+                      <div className="w-3 h-3 rounded-full bg-red-400" />
+                      <div className="w-3 h-3 rounded-full bg-yellow-400" />
+                      <div className="w-3 h-3 rounded-full bg-green-400" />
+                    </div>
+                    <div className="flex-1 bg-white rounded-lg px-3 py-1 text-xs text-gray-500 font-mono truncate border border-gray-200">
+                      {item.url || `yoursite.com/${effectivePublishSlug}`}
+                    </div>
+                  </div>
+                  <style dangerouslySetInnerHTML={{ __html: `
+                    .wp-preview-content h1 { font-size: 32px; font-weight: 800; color: #0f172a; margin: 32px 0 16px; line-height: 1.3; letter-spacing: -0.02em; }
+                    .wp-preview-content h2 { font-size: 26px; font-weight: 700; color: #0f172a; margin: 40px 0 16px; line-height: 1.35; letter-spacing: -0.01em; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px; }
+                    .wp-preview-content h3 { font-size: 21px; font-weight: 700; color: #1e293b; margin: 32px 0 12px; line-height: 1.4; }
+                    .wp-preview-content p { margin: 0 0 20px; color: #374151; line-height: 1.85; font-size: 17px; }
+                    .wp-preview-content a { color: #2563eb; text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.2s; }
+                    .wp-preview-content a:hover { border-bottom-color: #2563eb; }
+                    .wp-preview-content strong { color: #0f172a; font-weight: 700; }
+                    .wp-preview-content ul, .wp-preview-content ol { margin: 16px 0 24px; padding-left: 28px; color: #374151; }
+                    .wp-preview-content li { margin-bottom: 10px; line-height: 1.8; }
+                    .wp-preview-content blockquote { border-left: 4px solid #10b981; margin: 24px 0; padding: 16px 24px; background: #f8fafc; border-radius: 0 12px 12px 0; }
+                    .wp-preview-content img { max-width: 100%; height: auto; border-radius: 12px; margin: 24px 0; }
+                    .wp-preview-content table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+                    .wp-preview-content th { background: #f8fafc; padding: 14px 18px; text-align: left; font-weight: 700; color: #0f172a; border: 1px solid #e2e8f0; }
+                    .wp-preview-content td { padding: 14px 18px; border: 1px solid #e2e8f0; color: #374151; }
+                    .wp-preview-content iframe { max-width: 100%; }
+                    .wp-preview-content hr { border: none; border-top: 2px solid #f1f5f9; margin: 40px 0; }
+                  `}} />
+                  <article 
+                    className="wp-preview-content"
+                    style={{
+                      padding: '48px 56px',
+                      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                      color: '#1a1a1a',
+                      lineHeight: 1.8,
+                      fontSize: '17px',
+                      backgroundColor: '#ffffff',
+                      maxWidth: '100%',
+                      overflowWrap: 'break-word' as const,
+                    }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }}
+                  />
+                </div>
               </div>
             )}
 

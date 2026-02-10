@@ -3,7 +3,7 @@ import { useOptimizerStore, type ContentItem, type GeneratedContentStore, type N
 import {
   FileText, Check, X, AlertCircle, Trash2,
   Sparkles, ArrowUpDown, Eye, Brain,
-  CheckCircle, Clock, XCircle, Loader2, Database
+  CheckCircle, Clock, XCircle, Loader2, Database, Upload
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createOrchestrator, globalPerformanceTracker, type GeneratedContent, type NeuronWriterAnalysis } from "@/lib/sota";
@@ -11,6 +11,7 @@ import { ContentViewerPanel } from "../ContentViewerPanel";
 import { EnhancedGenerationModal, type GenerationStep } from "../EnhancedGenerationModal";
 import { ContentIntelligenceDashboard } from "../ContentIntelligenceDashboard";
 import { useSupabaseSyncContext } from "@/providers/SupabaseSyncProvider";
+import { useWordPressPublish } from "@/hooks/useWordPressPublish";
 import { toast } from "sonner";
 
 // Helper to reconstruct GeneratedContent from persisted store (minimal shape for viewer)
@@ -140,6 +141,112 @@ export function ReviewExport() {
     currentStep?: string;
     error?: string;
   }>>([]);
+
+  // ── Bulk Publish State ──
+  const { publish, isConfigured: wpConfigured } = useWordPressPublish();
+  const [isBulkPublishing, setIsBulkPublishing] = useState(false);
+  const [showBulkPublishModal, setShowBulkPublishModal] = useState(false);
+  const [bulkPublishStatus, setBulkPublishStatus] = useState<'idle' | 'draft' | 'publish'>('draft');
+  const [bulkPublishItems, setBulkPublishItems] = useState<Array<{
+    id: string;
+    title: string;
+    status: 'pending' | 'publishing' | 'published' | 'error';
+    error?: string;
+    postUrl?: string;
+  }>>([]);
+
+  // Count selected completed items that can be published
+  const publishableSelected = useMemo(() => {
+    return contentItems.filter(
+      i => selectedItems.includes(i.id) && i.status === 'completed' && generatedContentsStore[i.id]
+    );
+  }, [contentItems, selectedItems, generatedContentsStore]);
+
+  const allPublishable = useMemo(() => {
+    return contentItems.filter(
+      i => i.status === 'completed' && generatedContentsStore[i.id]
+    );
+  }, [contentItems, generatedContentsStore]);
+
+  const handleBulkPublish = useCallback(async () => {
+    const itemsToPublish = publishableSelected.length > 0 ? publishableSelected : allPublishable;
+    if (itemsToPublish.length === 0 || !wpConfigured) return;
+
+    setIsBulkPublishing(true);
+    const items = itemsToPublish.map(item => ({
+      id: item.id,
+      title: item.title,
+      status: 'pending' as const,
+    }));
+    setBulkPublishItems(items);
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (let i = 0; i < itemsToPublish.length; i++) {
+      const item = itemsToPublish[i];
+      const stored = generatedContentsStore[item.id];
+      if (!stored) continue;
+
+      setBulkPublishItems(prev =>
+        prev.map((p, idx) => idx === i ? { ...p, status: 'publishing' } : p)
+      );
+
+      try {
+        const cleanTitle = (stored.seoTitle || stored.title || item.title)
+          .replace(/<[^>]+>/g, '')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .trim();
+
+        const result = await publish(cleanTitle, stored.content, {
+          status: bulkPublishStatus === 'publish' ? 'publish' : 'draft',
+          slug: stored.slug,
+          metaDescription: stored.metaDescription,
+          seoTitle: stored.seoTitle,
+          sourceUrl: item.url,
+        });
+
+        if (result.success) {
+          successCount++;
+          setBulkPublishItems(prev =>
+            prev.map((p, idx) => idx === i ? { ...p, status: 'published', postUrl: result.postUrl } : p)
+          );
+        } else {
+          errorCount++;
+          setBulkPublishItems(prev =>
+            prev.map((p, idx) => idx === i ? { ...p, status: 'error', error: result.error } : p)
+          );
+        }
+      } catch (err) {
+        errorCount++;
+        setBulkPublishItems(prev =>
+          prev.map((p, idx) => idx === i ? {
+            ...p,
+            status: 'error',
+            error: err instanceof Error ? err.message : 'Unknown error',
+          } : p)
+        );
+      }
+
+      // Small delay between publishes to avoid overwhelming the API
+      if (i < itemsToPublish.length - 1) {
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+
+    setIsBulkPublishing(false);
+
+    if (successCount > 0 && errorCount === 0) {
+      toast.success(`✅ All ${successCount} posts published successfully!`);
+    } else if (successCount > 0) {
+      toast.warning(`Published ${successCount} posts, ${errorCount} failed`);
+    } else {
+      toast.error(`Failed to publish all ${errorCount} posts`);
+    }
+  }, [publishableSelected, allPublishable, wpConfigured, generatedContentsStore, publish, bulkPublishStatus]);
 
   const toggleSelect = (id: string) => {
     setSelectedItems(prev =>
@@ -546,6 +653,19 @@ export function ReviewExport() {
             {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
             {isGenerating ? 'Generating...' : `✨ Generate Selected (${selectedItems.length})`}
           </button>
+          {(publishableSelected.length > 0 || allPublishable.length > 0) && (
+            <button
+              onClick={() => setShowBulkPublishModal(true)}
+              disabled={isBulkPublishing}
+              className="px-5 py-2.5 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 disabled:opacity-50 flex items-center gap-2 transition-all shadow-lg shadow-green-600/20"
+            >
+              {isBulkPublishing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
+              {isBulkPublishing ? 'Publishing...' : publishableSelected.length > 0
+                ? `🚀 Bulk Publish Selected (${publishableSelected.length})`
+                : `🚀 Bulk Publish All (${allPublishable.length})`
+              }
+            </button>
+          )}
           <button
             onClick={() => setShowAnalytics(!showAnalytics)}
             className={cn(
@@ -729,6 +849,171 @@ export function ReviewExport() {
           hasPrevious={viewingIndex > 0}
           hasNext={viewingIndex < sortedItems.length - 1}
         />
+      )}
+
+      {/* ── Bulk Publish Modal ── */}
+      {showBulkPublishModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-lg p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
+                <Upload className="w-5 h-5 text-green-400" />
+                Bulk Publish to WordPress
+              </h3>
+              <button
+                onClick={() => { setShowBulkPublishModal(false); setBulkPublishItems([]); }}
+                className="p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted/50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {!wpConfigured ? (
+              <div className="text-center py-8">
+                <AlertCircle className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+                <h4 className="text-lg font-semibold text-foreground mb-2">WordPress Not Configured</h4>
+                <p className="text-muted-foreground mb-4">
+                  Add your WordPress URL, username, and application password in the Setup tab to enable publishing.
+                </p>
+                <button
+                  onClick={() => setShowBulkPublishModal(false)}
+                  className="px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-muted/80"
+                >
+                  Close
+                </button>
+              </div>
+            ) : bulkPublishItems.length === 0 ? (
+              /* Pre-publish confirmation */
+              <>
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Publish Status for All Posts
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setBulkPublishStatus('draft')}
+                        className={cn(
+                          "flex-1 px-4 py-3 rounded-xl font-medium transition-all border",
+                          bulkPublishStatus === 'draft'
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50"
+                        )}
+                      >
+                        📝 Draft
+                      </button>
+                      <button
+                        onClick={() => setBulkPublishStatus('publish')}
+                        className={cn(
+                          "flex-1 px-4 py-3 rounded-xl font-medium transition-all border",
+                          bulkPublishStatus === 'publish'
+                            ? "bg-green-600 text-white border-green-600"
+                            : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50"
+                        )}
+                      >
+                        🚀 Publish
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-muted/20 border border-border rounded-xl">
+                    <h4 className="text-sm font-medium text-foreground mb-3">Posts to publish:</h4>
+                    <ul className="text-sm text-muted-foreground space-y-2 max-h-48 overflow-y-auto">
+                      {(publishableSelected.length > 0 ? publishableSelected : allPublishable).map((item, i) => {
+                        const stored = generatedContentsStore[item.id];
+                        return (
+                          <li key={item.id} className="flex items-start gap-2">
+                            <span className="text-green-400 font-mono text-xs mt-0.5">{i + 1}.</span>
+                            <div>
+                              <span className="text-foreground font-medium">{item.title}</span>
+                              {stored && (
+                                <span className="text-muted-foreground text-xs ml-2">
+                                  ({stored.wordCount?.toLocaleString() || '—'} words)
+                                </span>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    <div className="mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
+                      ✨ SEO titles, meta descriptions, and slugs will be set for each post
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowBulkPublishModal(false)}
+                    className="flex-1 px-4 py-3 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => { handleBulkPublish(); }}
+                    className="flex-1 px-4 py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Publish {(publishableSelected.length > 0 ? publishableSelected : allPublishable).length} Posts
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* Publishing progress */
+              <>
+                <div className="space-y-3 max-h-72 overflow-y-auto mb-6">
+                  {bulkPublishItems.map((item, i) => (
+                    <div
+                      key={item.id}
+                      className={cn(
+                        "flex items-center gap-3 p-3 rounded-xl border transition-all",
+                        item.status === 'published' && "bg-green-500/10 border-green-500/30",
+                        item.status === 'publishing' && "bg-blue-500/10 border-blue-500/30",
+                        item.status === 'error' && "bg-red-500/10 border-red-500/30",
+                        item.status === 'pending' && "bg-muted/20 border-border"
+                      )}
+                    >
+                      <div className="flex-shrink-0">
+                        {item.status === 'pending' && <Clock className="w-4 h-4 text-muted-foreground" />}
+                        {item.status === 'publishing' && <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />}
+                        {item.status === 'published' && <CheckCircle className="w-4 h-4 text-green-400" />}
+                        {item.status === 'error' && <XCircle className="w-4 h-4 text-red-400" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-foreground truncate">{item.title}</div>
+                        {item.status === 'published' && item.postUrl && (
+                          <a
+                            href={item.postUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-green-400 hover:underline"
+                          >
+                            View post →
+                          </a>
+                        )}
+                        {item.status === 'error' && item.error && (
+                          <div className="text-xs text-red-400 truncate">{item.error}</div>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground font-mono">{i + 1}/{bulkPublishItems.length}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {!isBulkPublishing && (
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => { setShowBulkPublishModal(false); setBulkPublishItems([]); }}
+                      className="flex-1 px-4 py-3 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-all"
+                    >
+                      Close
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

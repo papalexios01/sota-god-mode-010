@@ -89,7 +89,7 @@ export class SOTAInternalLinkEngine {
    * Generate HIGH-QUALITY internal link opportunities
    * Only returns links with 3-7 word contextual anchor text
    */
-  generateLinkOpportunities(content: string, maxLinks: number = 10): InternalLink[] {
+  generateLinkOpportunities(content: string, maxLinks: number = 15): InternalLink[] {
     if (this.sitePages.length === 0) {
       console.log('[InternalLinkEngine] No site pages available - skipping internal links');
       return [];
@@ -191,7 +191,7 @@ export class SOTAInternalLinkEngine {
               overlapMeaningfulCount,
               titleRun
             );
-            if (score < 55) continue;
+            if (score < 62) continue;
 
             const startIndex = span[0].startIndex;
             const endIndex = span[span.length - 1].endIndex;
@@ -234,8 +234,8 @@ export class SOTAInternalLinkEngine {
   private isValidAnchor(text: string): boolean {
     const words = text.split(/\s+/);
     
-    // Must be 2-8 words (2-word anchors allowed when topically strong)
-    if (words.length < 2 || words.length > 8) return false;
+    // Must be 3-8 words for more descriptive anchor text
+    if (words.length < 3 || words.length > 8) return false;
     
     // Must not start/end with a stop word (anchors should be self-contained concepts)
     const first = words[0]?.toLowerCase();
@@ -256,7 +256,8 @@ export class SOTAInternalLinkEngine {
       'click here', 'learn more', 'read more', 'this article', 'this guide',
       'in this post', 'in this guide', 'in this article', 'check out',
       'find out', 'take a look', 'see more', 'see our', 'visit our',
-      'you can', 'we have', 'here is', 'there are', 'this is'
+      'you can', 'we have', 'here is', 'there are', 'this is',
+      'according to', 'such as', 'as well as', 'in addition', 'for example', 'one of the'
     ];
     if (banned.some(b => lower.includes(b))) return false;
     
@@ -264,7 +265,7 @@ export class SOTAInternalLinkEngine {
     if (/[<>{}[\]|\\^]/.test(text)) return false;
     
     // Not too short or too long
-    if (text.length < 10 || text.length > 80) return false;
+    if (text.length < 15 || text.length > 80) return false;
     
     return true;
   }
@@ -304,6 +305,18 @@ export class SOTAInternalLinkEngine {
     const first = meaningfulAnchorTokens[0];
     const last = meaningfulAnchorTokens[meaningfulAnchorTokens.length - 1];
     if (generic.has(first) || generic.has(last)) score -= 12;
+
+    // Bonus for anchors containing a verb (action words make better anchor text)
+    const commonVerbs = new Set([
+      'improve', 'reduce', 'increase', 'boost', 'create', 'build', 'manage',
+      'optimize', 'enhance', 'prevent', 'treat', 'develop', 'design', 'implement',
+      'achieve', 'maintain', 'support', 'transform', 'strengthen', 'maximize',
+      'choose', 'compare', 'install', 'configure', 'integrate', 'measure',
+      'analyze', 'plan', 'train', 'grow', 'scale', 'monitor', 'automate',
+      'protect', 'recover', 'restore', 'upgrade', 'calculate', 'evaluate'
+    ]);
+    const hasVerb = meaningfulAnchorTokens.some(t => commonVerbs.has(t));
+    if (hasVerb) score += 12;
 
     // Normalize to 0..100
     score = Math.max(0, Math.min(100, score));
@@ -358,15 +371,41 @@ export class SOTAInternalLinkEngine {
    */
   injectContextualLinks(content: string, links: InternalLink[]): string {
     if (links.length === 0) return content;
-    
+
+    // Split content into sections by <h2 tags for zone-based distribution
+    const sectionSplitRegex = /(?=<h2[\s>])/gi;
+    const sections = content.split(sectionSplitRegex).filter(s => s.length > 0);
+
+    // Assign each section to a zone: beginning, middle, end
+    const totalSections = sections.length;
+    const getZone = (idx: number): string => {
+      if (totalSections <= 1) return 'middle';
+      const ratio = idx / (totalSections - 1);
+      if (ratio < 0.33) return 'beginning';
+      if (ratio < 0.67) return 'middle';
+      return 'end';
+    };
+
+    const zoneLinksCount = new Map<string, number>([
+      ['beginning', 0], ['middle', 0], ['end', 0]
+    ]);
+    const sectionLinksCount = new Map<number, number>();
+    for (let i = 0; i < totalSections; i++) sectionLinksCount.set(i, 0);
+
+    const maxLinksPerSection = 3;
     const injectedAnchors = new Set<string>();
     let injectedCount = 0;
 
-    // Split around existing links so we NEVER inject inside them (avoids fragile lookbehind regex)
-    const parts = content.split(/(<a\b[^>]*>[\s\S]*?<\/a>)/gi);
-
     // Sort by anchor length (longer first) to avoid partial matches
     const sortedLinks = [...links].sort((a, b) => (b.anchor?.length || 0) - (a.anchor?.length || 0));
+
+    // Sort sections by zone priority: prefer zones with fewer links
+    const getSectionPriority = (sectionIdx: number): number => {
+      const zone = getZone(sectionIdx);
+      const zoneCount = zoneLinksCount.get(zone) ?? 0;
+      const sectionCount = sectionLinksCount.get(sectionIdx) ?? 0;
+      return zoneCount * 100 + sectionCount;
+    };
 
     for (const link of sortedLinks) {
       const anchor = (link.anchor || '').trim();
@@ -374,12 +413,35 @@ export class SOTAInternalLinkEngine {
       if (injectedAnchors.has(anchor.toLowerCase())) continue;
 
       const regex = this.buildFlexibleAnchorRegex(anchor);
+
+      // Build candidate list: which sections contain this anchor?
+      const candidates: number[] = [];
+      for (let sIdx = 0; sIdx < sections.length; sIdx++) {
+        if ((sectionLinksCount.get(sIdx) ?? 0) >= maxLinksPerSection) continue;
+
+        // Split section around existing links to avoid injecting inside them
+        const sectionParts = sections[sIdx].split(/(<a\b[^>]*>[\s\S]*?<\/a>)/gi);
+        const hasMatch = sectionParts.some(part => {
+          if (!part) return false;
+          if (/^<a\b/i.test(part)) return false;
+          return regex.test(part);
+        });
+        if (hasMatch) candidates.push(sIdx);
+      }
+
+      if (candidates.length === 0) continue;
+
+      // Pick the section in the zone with fewest links
+      candidates.sort((a, b) => getSectionPriority(a) - getSectionPriority(b));
+      const bestSectionIdx = candidates[0];
+
+      // Inject into the first match within that section
+      const sectionParts = sections[bestSectionIdx].split(/(<a\b[^>]*>[\s\S]*?<\/a>)/gi);
       let didInject = false;
 
-      for (let i = 0; i < parts.length; i++) {
-        const part = parts[i];
+      for (let i = 0; i < sectionParts.length; i++) {
+        const part = sectionParts[i];
         if (!part) continue;
-        // Keep existing <a>...</a> segments untouched
         if (/^<a\b/i.test(part)) continue;
 
         const match = part.match(regex);
@@ -388,21 +450,25 @@ export class SOTAInternalLinkEngine {
         const actualText = match[0];
         const safeUrl = this.escapeHtmlAttr(link.targetUrl);
         const safeTitle = this.escapeHtmlAttr(anchor);
-        const linkHtml = `<a href="${safeUrl}" title="Learn more about ${safeTitle}">${actualText}</a>`;
-        parts[i] = part.replace(regex, linkHtml);
+        const linkHtml = `<a href="${safeUrl}" title="${safeTitle}">${actualText}</a>`;
+        sectionParts[i] = part.replace(regex, linkHtml);
         didInject = true;
         break;
       }
 
       if (didInject) {
+        sections[bestSectionIdx] = sectionParts.join('');
         injectedAnchors.add(anchor.toLowerCase());
         injectedCount++;
-        console.log(`[InternalLinkEngine] ✅ Linked: "${anchor}" → ${link.targetUrl}`);
+        const zone = getZone(bestSectionIdx);
+        zoneLinksCount.set(zone, (zoneLinksCount.get(zone) ?? 0) + 1);
+        sectionLinksCount.set(bestSectionIdx, (sectionLinksCount.get(bestSectionIdx) ?? 0) + 1);
+        console.log(`[InternalLinkEngine] ✅ Linked: "${anchor}" → ${link.targetUrl} [zone: ${zone}]`);
       }
     }
 
-    console.log(`[InternalLinkEngine] Successfully injected ${injectedCount}/${links.length} links`);
-    return parts.join('');
+    console.log(`[InternalLinkEngine] Successfully injected ${injectedCount}/${links.length} links (zones: beginning=${zoneLinksCount.get('beginning')}, middle=${zoneLinksCount.get('middle')}, end=${zoneLinksCount.get('end')})`);
+    return sections.join('');
   }
 
   private buildFlexibleAnchorRegex(anchor: string): RegExp {
