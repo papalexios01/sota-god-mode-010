@@ -25,11 +25,11 @@ import { YouTubeService, createYouTubeService } from './YouTubeService';
 import { ReferenceService, createReferenceService } from './ReferenceService';
 import { SOTAInternalLinkEngine, createInternalLinkEngine } from './SOTAInternalLinkEngine';
 import { SchemaGenerator, createSchemaGenerator } from './SchemaGenerator';
-import { calculateQualityScore, analyzeContent, removeAIPhrases, polishReadability, validateVisualBreaks } from './QualityValidator'; // 🔧 CHANGED: Added polishReadability, validateVisualBreaks imports
+import { calculateQualityScore, analyzeContent, removeAIPhrases, polishReadability, validateVisualBreaks } from './QualityValidator';
 import { EEATValidator, createEEATValidator } from './EEATValidator';
 import { generationCache } from './cache';
 import { NeuronWriterService, createNeuronWriterService, type NeuronWriterAnalysis } from './NeuronWriterService';
-import { ContentPostProcessor } from './ContentPostProcessor'; // 🆕 NEW: Visual break enforcement
+import { ContentPostProcessor } from './ContentPostProcessor';
 
 /**
  * CRITICAL: Convert any markdown syntax to proper HTML
@@ -64,7 +64,7 @@ function convertMarkdownToHTML(content: string): string {
     return `<${tag} style="margin: 20px 0; padding-left: 24px; color: #374151;">${cleanedMatch}</${tag}>`;
   });
 
-  html = html.replace(/```([^`]+)```/gs, '<pre style="background: #f3f4f6; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 20px 0;"><code style="color: #374151; font-size: 14px;">$1</code></pre>');
+  html = html.replace(/```([^`]+)```/gs, '<pre style="background: #f3f4f6; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 20px 0;"><code style="color: #374141; font-size: 14px;">$1</code></pre>');
   html = html.replace(/`([^`]+)`/g, '<code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 14px;">$1</code>');
   html = html.replace(/^> (.+)$/gm, '<blockquote style="border-left: 4px solid #10b981; padding-left: 20px; margin: 20px 0; color: #4b5563; font-style: italic;">$1</blockquote>');
   html = html.replace(/^[-*]{3,}$/gm, '<hr style="border: 0; border-top: 2px solid #e5e7eb; margin: 32px 0;">');
@@ -112,6 +112,7 @@ function ensureProperHTMLStructure(content: string): string {
 
   html = html.replace(/<p[^>]*>\s*<\/p>/g, '');
 
+  // 🔧 FIX v3: Only add styles to UNSTYLED headings (don't overwrite already-styled ones)
   html = html.replace(/<h2>([^<]+)<\/h2>/g, '<h2 style="color: #0f172a; font-size: 30px; font-weight: 900; margin: 56px 0 24px 0; padding-bottom: 14px; border-bottom: 4px solid #10b981; letter-spacing: -0.025em; line-height: 1.2;">$1</h2>');
   html = html.replace(/<h3>([^<]+)<\/h3>/g, '<h3 style="color: #1e293b; font-size: 23px; font-weight: 800; margin: 40px 0 16px 0; letter-spacing: -0.02em; line-height: 1.3;">$1</h3>');
   html = html.replace(/<h4>([^<]+)<\/h4>/g, '<h4 style="color: #334155; font-size: 19px; font-weight: 700; margin: 32px 0 12px 0; line-height: 1.3;">$1</h4>');
@@ -141,13 +142,16 @@ function ensureProperHTMLStructure(content: string): string {
     }
   }
 
-  if (!html.includes('data-premium-wp')) {
+  // 🔧 FIX v3: Removed max-width: 780px — let WordPress theme control layout width
+  // Also changed data-premium-wp to data-sota-content to avoid conflicts
+  if (!html.includes('data-premium-wp') && !html.includes('data-sota-content')) {
     const wrapperStart =
-      '<div data-premium-wp="true" style="max-width: 780px; margin: 0 auto; padding: 24px 20px; font-family: \'Inter\', ui-sans-serif, system-ui, -apple-system, \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif; line-height: 1.75; color: #1e293b; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;">';
+      '<div data-sota-content="true" style="font-family: \'Inter\', ui-sans-serif, system-ui, -apple-system, \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif; line-height: 1.75; color: #1e293b; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;">';
     const wrapperEnd = '</div>';
     html = `${wrapperStart}\n${html}\n${wrapperEnd}`;
   }
 
+  // 🔧 FIX v3: Only add styles to elements that DON'T already have a style attribute
   html = html
     .replace(/<p(?!\s)>/g, '<p style="font-size: 18px; margin: 0 0 20px 0; line-height: 1.8; color: #334155;">')
     .replace(/<ul(?!\s)>/g, '<ul style="margin: 0 0 24px 0; padding-left: 24px; list-style: none;">')
@@ -544,17 +548,29 @@ Now continue:`;
       this.log(`removeAIPhrases failed (non-fatal): ${e}`);
     }
 
-    // --- 3b: Internal links ---
+    // --- 3b: Smart Internal Links — check existing count, enforce 4-8 minimum --- // 🔧 FIX v3
     try {
       if (options.injectLinks !== false && this.config.sitePages && this.config.sitePages.length > 0) {
-        this.log(`Finding internal links from ${this.config.sitePages.length} crawled pages...`);
         this.linkEngine.updateSitePages(this.config.sitePages);
-        const linkOpportunities = this.linkEngine.generateLinkOpportunities(enhancedContent, 15);
-        if (linkOpportunities.length > 0) {
-          enhancedContent = this.linkEngine.injectContextualLinks(enhancedContent, linkOpportunities);
-          this.log(`Injected ${linkOpportunities.length} internal links`);
+
+        // 🔧 FIX v3: Count links ALREADY in content before injecting more
+        const existingLinkMatches = enhancedContent.match(/<a\s[^>]*href\s*=\s*["'][^"']*["'][^>]*>/gi) || [];
+        const existingCount = existingLinkMatches.length;
+        this.log(`Internal links already in content: ${existingCount}`);
+
+        if (existingCount < 4) {
+          // 🔧 FIX v3: Need minimum 4, target 8 total
+          const needed = Math.max(4, 8 - existingCount);
+          this.log(`Need ${needed} more internal links (minimum 4 total). Finding opportunities...`);
+          const linkOpportunities = this.linkEngine.generateLinkOpportunities(enhancedContent, needed);
+          if (linkOpportunities.length > 0) {
+            enhancedContent = this.linkEngine.injectContextualLinks(enhancedContent, linkOpportunities);
+            this.log(`Injected ${linkOpportunities.length} internal links (total: ~${existingCount + linkOpportunities.length})`);
+          } else {
+            this.log('No suitable link opportunities found in content for available pages');
+          }
         } else {
-          this.log('No matching anchor text found in content for available pages');
+          this.log(`Content already has ${existingCount} internal links — skipping post-generation injection`);
         }
       }
     } catch (e) {
@@ -836,7 +852,7 @@ ${currentContent}`;
     }
 
     // =====================================================================
-    // 🆕 NEW: Steps 3f & 3g — Visual break enforcement + readability polish
+    // Steps 3f & 3g — Visual break enforcement + readability polish
     // =====================================================================
 
     // --- 3f: Enforce visual breaks (Goal #5: no 200+ word walls of text) ---
@@ -875,8 +891,14 @@ ${currentContent}`;
     let qualityScore: QualityScore;
 
     try {
-      this.log('Finalizing HTML: Converting any markdown remnants...');
-      enhancedContent = convertMarkdownToHTML(enhancedContent);
+      // 🔧 FIX v3: Only convert markdown if actual markdown artifacts are detected
+      const hasMarkdownArtifacts = /^#{1,4}\s/m.test(enhancedContent) || /\*\*[^*]+\*\*/.test(enhancedContent) || /\[.+?\]\(.+?\)/.test(enhancedContent);
+      if (hasMarkdownArtifacts) {
+        this.log('Detected markdown remnants — converting to HTML...');
+        enhancedContent = convertMarkdownToHTML(enhancedContent);
+      } else {
+        this.log('No markdown artifacts detected — skipping conversion to preserve styled HTML');
+      }
       enhancedContent = ensureProperHTMLStructure(enhancedContent);
     } catch (e) {
       this.log(`HTML conversion failed (non-fatal): ${e}`);
@@ -913,7 +935,6 @@ ${currentContent}`;
       this.log(`Quality Score: ${qualityScore.overall}%`);
       this.log(`E-E-A-T Score: ${eeatScore.overall}%`);
 
-      // 🆕 NEW: Log visual break validation status
       const vbResult = validateVisualBreaks(enhancedContent, 200);
       if (vbResult.valid) {
         this.log('Visual Breaks: ✅ PASSED — no wall-of-text violations');
@@ -1013,7 +1034,6 @@ ${currentContent}`;
       neuronWriterQueryId: neuron?.queryId,
       neuronWriterAnalysis: neuron?.analysis,
 
-      // 🆕 NEW: Attach post-processing metadata
       postProcessing: postProcessingResult,
     };
 
@@ -1061,7 +1081,9 @@ Output ONLY the title, nothing else.`;
   ): Promise<string> {
     const targetWordCount = options.targetWordCount || serpAnalysis.recommendedWordCount || 2500;
 
-    // 🔧 CHANGED: System prompt now includes explicit visual break rule and design system HTML
+    // 🔧 FIX v3: Build available internal link URLs so the AI can embed them during generation
+    const availableInternalUrls = (this.config.sitePages || []).slice(0, 25).map(p => `- ${p.url} — "${p.title}"`).join('\n');
+
     const systemPrompt = `You write like a real person who's done the work. Not an AI. Not a content mill. A real expert who's been in the trenches.
 
 Your voice: Alex Hormozi meets Tim Ferriss. Blunt. Data-driven. Zero fluff. You write like you're explaining something to a smart friend over coffee — casual but packed with substance.
@@ -1149,6 +1171,14 @@ AI DETECTION KILLERS — NEVER USE:
 ❌ "Leverage" / "Utilize" / "Facilitate" / "Seamlessly" / "Holistic" / "Robust"
 ❌ "Tapestry" / "Embark" / "Journey" / "Embrace" / "Elevate" / "Unlock" / "Master"
 
+INTERNAL LINKS — YOU MUST EMBED 4-8 IN THE HTML:
+Each internal link must:
+• Use 3-7 word descriptive anchor text that reads naturally in the sentence
+• Be wrapped in: <a href="URL" style="color:#059669;text-decoration:underline;text-decoration-color:rgba(5,150,105,0.3);text-underline-offset:3px;font-weight:600;">anchor text</a>
+• Be evenly spread across different H2 sections (NOT bunched together)
+• Never have 2 links in the same paragraph
+• Anchor text must describe what the reader will find (NEVER "click here" or "read more")
+
 OUTPUT: PURE HTML ONLY. No markdown. No code fences. No preamble.`;
 
     const prompt = `Write a ${targetWordCount}+ word article about "${keyword}".
@@ -1167,6 +1197,15 @@ ${serpAnalysis.semanticEntities.slice(0, 18).join(', ')}
 ${neuronTermPrompt ? `
 NEURONWRITER OPTIMIZATION — 90%+ CONTENT SCORE REQUIRED:
 ${neuronTermPrompt}
+` : ''}
+
+${availableInternalUrls ? `
+INTERNAL LINK URLS — EMBED 4-8 OF THESE THROUGHOUT THE ARTICLE (evenly distributed across H2 sections):
+${availableInternalUrls}
+
+INTERNAL LINK FORMAT: <a href="[EXACT URL FROM ABOVE]" style="color:#059669;text-decoration:underline;text-decoration-color:rgba(5,150,105,0.3);text-underline-offset:3px;font-weight:600;">[3-7 word descriptive anchor text]</a>
+
+RULES: First link in paragraph 2-3. Spread remaining links evenly. Max 1 link per paragraph. Anchor text must describe the linked page's topic.
 ` : ''}
 
 ${videos.length > 0 ? `
@@ -1192,6 +1231,7 @@ MANDATORY STRUCTURE:
 7. At least 2 expert quotes
 8. FAQ section with 8 questions (use <details>/<summary>)
 9. Strong CTA conclusion
+10. 4-8 internal links evenly distributed across the article
 
 VISUAL BREAK RULE: Between every pair of visual elements (box, table, blockquote, list, figure), there must be NO MORE than 200 words of <p> text. If any gap exceeds ~150 words, insert a styled element.
 
@@ -1209,7 +1249,7 @@ Write the complete article now. Output ONLY HTML.`;
         model: this.config.primaryModel || 'gemini',
         apiKeys: this.config.apiKeys,
         systemPrompt,
-        temperature: 0.72, // 🔧 CHANGED: Lowered from 0.85 for more deterministic HTML structure
+        temperature: 0.72,
         maxTokens: initialMaxTokens
       });
     }
@@ -1527,7 +1567,6 @@ Output ONLY valid JSON.`;
 
     try {
       const controller = new AbortController();
-      // 🔧 CHANGED: Scale timeout: 2 min base + 30s per 5000 chars (caps at 5 min)
       const timeoutMs = Math.min(300000, 120000 + Math.floor(originalHtml.length / 5000) * 30000);
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -1655,7 +1694,6 @@ Output ONLY the HTML paragraphs, nothing else.`;
     return result;
   }
 
-  // 🔧 CHANGED: Uses hidden HTML comment instead of visible keyword dump paragraph
   private enforceNeuronwriterCoverage(
     html: string,
     req: { requiredTerms: string[]; entities: string[]; h2: string[] }
@@ -1676,7 +1714,6 @@ Output ONLY the HTML paragraphs, nothing else.`;
     if (missing.length === 0) return html;
 
     const chunk = missing.slice(0, 40);
-    // 🔧 CHANGED: Use hidden HTML comment instead of visible keyword dump — preserves E-E-A-T
     const insertion = `
 <!-- NeuronWriter Coverage Terms: ${chunk.map(this.escapeHtml).join(', ')} -->`;
     this.log(`⚠️ ${chunk.length} NeuronWriter terms could not be naturally incorporated — logged as HTML comment`);
