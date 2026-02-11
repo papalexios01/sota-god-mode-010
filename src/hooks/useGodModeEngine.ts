@@ -1,6 +1,6 @@
 /**
  * God Mode 2.0 - React Hook for Engine Control
- * 
+ *
  * Provides a clean interface for controlling the autonomous
  * SEO maintenance engine from React components.
  */
@@ -17,7 +17,7 @@ import type {
 
 export function useGodModeEngine() {
   const engineRef = useRef<GodModeEngine | null>(null);
-  
+
   const {
     config: appConfig,
     sitemapUrls,
@@ -33,15 +33,18 @@ export function useGodModeEngine() {
   } = useOptimizerStore();
 
   /**
-   * Handle state updates from engine
+   * Handle state updates from engine.
+   * The engine sends deltas for stats and single-item arrays for history.
+   * This hook translates those into the correct store operations.
    */
   const handleStateUpdate = useCallback((updates: Partial<GodModeState>) => {
-    // Handle history append specially
+    // Handle history append specially — engine sends [singleItem], we prepend via store
     if (updates.history && Array.isArray(updates.history)) {
       updates.history.forEach(item => addGodModeHistory(item));
       delete updates.history;
     }
-    
+
+    // Handle stats: extract delta fields + pass-through metadata fields
     if (updates.stats && typeof updates.stats === 'object') {
       const statsUpdate = updates.stats as Record<string, unknown>;
       if (statsUpdate.totalProcessed !== undefined) {
@@ -51,12 +54,17 @@ export function useGodModeEngine() {
           errorCount: (statsUpdate.errorCount as number) || 0,
           qualityScore: (statsUpdate.qualityScore as number) || (statsUpdate.avgQualityScore as number) || 0,
           wordCount: (statsUpdate.wordCount as number) || (statsUpdate.totalWordsGenerated as number) || 0,
+          // FIX: Forward metadata fields so they aren't silently dropped
+          cycleCount: statsUpdate.cycleCount as number | undefined,
+          sessionStartedAt: statsUpdate.sessionStartedAt as Date | null | undefined,
+          lastScanAt: statsUpdate.lastScanAt as Date | null | undefined,
+          nextScanAt: statsUpdate.nextScanAt as Date | null | undefined,
         });
         delete updates.stats;
       }
     }
-    
-    // Apply remaining updates
+
+    // Apply remaining updates (status, currentPhase, currentUrl, queue, config, etc.)
     if (Object.keys(updates).length > 0) {
       setGodModeState(updates);
     }
@@ -96,33 +104,29 @@ export function useGodModeEngine() {
    * Start the God Mode engine
    */
   const start = useCallback(async (customConfig?: Partial<GodModeConfig>) => {
-    // ===== PRIORITY ONLY MODE VALIDATION =====
     if (priorityOnlyMode) {
       if (priorityUrls.length === 0) {
         throw new Error('🎯 Priority Only Mode requires URLs in your Priority Queue. Please add priority URLs first, or disable Priority Only Mode to use sitemap scanning.');
       }
       console.log(`[GodMode] 🎯 Priority Only Mode: ${priorityUrls.length} priority URLs will be processed`);
     } else {
-      // Full sitemap mode validation
       if (sitemapUrls.length === 0 && priorityUrls.length === 0) {
         throw new Error('No URLs available. Please crawl a sitemap first or add priority URLs.');
       }
     }
 
-    const hasApiKey = appConfig.geminiApiKey || appConfig.openaiApiKey || 
-                      appConfig.anthropicApiKey || appConfig.openrouterApiKey || 
+    const hasApiKey = appConfig.geminiApiKey || appConfig.openaiApiKey ||
+                      appConfig.anthropicApiKey || appConfig.openrouterApiKey ||
                       appConfig.groqApiKey;
-    
+
     if (!hasApiKey) {
       throw new Error('No AI API key configured. Please add at least one API key in Setup.');
     }
 
-    // Stop existing engine if running
     if (engineRef.current) {
       engineRef.current.stop();
     }
 
-    // Create new engine
     const config: GodModeConfig = {
       ...godModeState.config,
       ...customConfig,
@@ -142,7 +146,6 @@ export function useGodModeEngine() {
       getAppConfig,
     });
 
-    // Start the engine
     await engineRef.current.start();
   }, [
     sitemapUrls,
@@ -157,9 +160,6 @@ export function useGodModeEngine() {
     getAppConfig,
   ]);
 
-  /**
-   * Stop the God Mode engine
-   */
   const stop = useCallback(() => {
     if (engineRef.current) {
       engineRef.current.stop();
@@ -167,23 +167,14 @@ export function useGodModeEngine() {
     }
   }, []);
 
-  /**
-   * Pause the engine (maintains state)
-   */
   const pause = useCallback(() => {
     engineRef.current?.pause();
   }, []);
 
-  /**
-   * Resume from paused state
-   */
   const resume = useCallback(() => {
     engineRef.current?.resume();
   }, []);
 
-  /**
-   * Update engine configuration
-   */
   const updateConfig = useCallback((updates: Partial<GodModeConfig>) => {
     setGodModeState({
       config: {
@@ -193,32 +184,20 @@ export function useGodModeEngine() {
     });
   }, [godModeState.config, setGodModeState]);
 
-  /**
-   * Clear history
-   */
   const clearHistory = useCallback(() => {
     setGodModeState({ history: [] });
   }, [setGodModeState]);
 
-  /**
-   * Clear activity log
-   */
   const clearActivityLog = useCallback(() => {
     setGodModeState({ activityLog: [] });
   }, [setGodModeState]);
 
-  /**
-   * Remove item from queue
-   */
   const removeFromQueue = useCallback((id: string) => {
     setGodModeState({
       queue: godModeState.queue.filter(item => item.id !== id),
     });
   }, [godModeState.queue, setGodModeState]);
 
-  /**
-   * Manually add URL to queue
-   */
   const addToQueue = useCallback((url: string, priority: 'critical' | 'high' | 'medium' | 'low' = 'high') => {
     const newItem = {
       id: crypto.randomUUID(),
@@ -229,15 +208,12 @@ export function useGodModeEngine() {
       source: 'manual' as const,
       retryCount: 0,
     };
-    
+
     setGodModeState({
       queue: [...godModeState.queue, newItem],
     });
   }, [godModeState.queue, setGodModeState]);
 
-  /**
-   * Cleanup on unmount
-   */
   useEffect(() => {
     return () => {
       if (engineRef.current) {
@@ -246,36 +222,23 @@ export function useGodModeEngine() {
     };
   }, []);
 
-  /**
-   * Auto-resume if was running before page reload
-   */
   useEffect(() => {
     if (godModeState.status === 'running' && !engineRef.current) {
-      // Engine was running before refresh, offer to resume
       console.log('[GodMode] Previous session was running. Call start() to resume.');
     }
   }, []);
 
   return {
-    // State
     state: godModeState,
     isRunning: godModeState.status === 'running',
     isPaused: godModeState.status === 'paused',
-    
-    // Controls
     start,
     stop,
     pause,
     resume,
-    
-    // Configuration
     updateConfig,
-    
-    // Queue management
     addToQueue,
     removeFromQueue,
-    
-    // History
     clearHistory,
     clearActivityLog,
   };
