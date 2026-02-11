@@ -18,17 +18,15 @@ export interface ContentItem {
   type: 'pillar' | 'cluster' | 'single' | 'refresh';
   status: 'pending' | 'generating' | 'completed' | 'error';
   primaryKeyword: string;
-  url?: string;  // Source URL for rewrites
+  url?: string;
   content?: string;
   wordCount?: number;
   error?: string;
   createdAt: Date;
   updatedAt: Date;
-  // Persisted generation data - survives navigation
   generatedContentId?: string;
 }
 
-// Persisted generated content store - indexed by content item ID
 export interface GeneratedContentStore {
   [itemId: string]: {
     id: string;
@@ -61,7 +59,6 @@ export interface GeneratedContentStore {
   };
 }
 
-// Persisted NeuronWriter analysis store
 export interface NeuronWriterDataStore {
   [itemId: string]: {
     query_id: string;
@@ -91,41 +88,28 @@ export interface NeuronWriterProject {
 }
 
 export interface AppConfig {
-  // API Keys
   geminiApiKey: string;
   serperApiKey: string;
   openaiApiKey: string;
   anthropicApiKey: string;
   openrouterApiKey: string;
   groqApiKey: string;
-  
-  // Model Config
   primaryModel: 'gemini' | 'openai' | 'anthropic' | 'openrouter' | 'groq';
   enableGoogleGrounding: boolean;
-  
-  // OpenRouter & Groq Custom Models
   openrouterModelId: string;
   groqModelId: string;
-  
-  // Supabase (optional but recommended for publishing + history)
   supabaseUrl: string;
   supabaseAnonKey: string;
-
-  // WordPress Config
   wpUrl: string;
   wpUsername: string;
   wpAppPassword: string;
   organizationName: string;
   logoUrl: string;
   authorName: string;
-  
-  // NeuronWriter
   enableNeuronWriter: boolean;
   neuronWriterApiKey: string;
   neuronWriterProjectId: string;
   neuronWriterProjectName: string;
-  
-  // Geo-Targeting
   enableGeoTargeting: boolean;
   targetCountry: string;
   targetLanguage: string;
@@ -135,19 +119,19 @@ interface OptimizerStore {
   // Navigation
   currentStep: number;
   setCurrentStep: (step: number) => void;
-  
+
   // Configuration
   config: AppConfig;
   setConfig: (config: Partial<AppConfig>) => void;
-  
-  // NeuronWriter Projects (loaded dynamically)
+
+  // NeuronWriter Projects
   neuronWriterProjects: NeuronWriterProject[];
   setNeuronWriterProjects: (projects: NeuronWriterProject[]) => void;
   neuronWriterLoading: boolean;
   setNeuronWriterLoading: (loading: boolean) => void;
   neuronWriterError: string | null;
   setNeuronWriterError: (error: string | null) => void;
-  
+
   // Content Queue
   contentItems: ContentItem[];
   addContentItem: (item: Omit<ContentItem, 'id' | 'createdAt' | 'updatedAt'>) => void;
@@ -155,35 +139,34 @@ interface OptimizerStore {
   updateContentItem: (id: string, updates: Partial<ContentItem>) => void;
   removeContentItem: (id: string) => void;
   clearContentItems: () => void;
-  
+
   // Priority URLs
   priorityUrls: PriorityUrl[];
   addPriorityUrl: (url: string, priority: PriorityUrl['priority']) => void;
   removePriorityUrl: (id: string) => void;
   clearPriorityUrls: () => void;
-  
+
   // Exclusions
   excludedUrls: string[];
   excludedCategories: string[];
   setExcludedUrls: (urls: string[]) => void;
   setExcludedCategories: (categories: string[]) => void;
-  
+
   // Sitemap
   sitemapUrls: string[];
   setSitemapUrls: (urls: string[]) => void;
-  
-  // God Mode Legacy (simple toggle)
+
+  // God Mode Legacy
   godModeEnabled: boolean;
   priorityOnlyMode: boolean;
   setGodModeEnabled: (enabled: boolean) => void;
   setPriorityOnlyMode: (enabled: boolean) => void;
-  
+
   // God Mode 2.0 State
   godModeState: GodModeState;
   setGodModeState: (updates: Partial<GodModeState>) => void;
   addGodModeActivity: (item: Omit<GodModeActivityItem, 'id' | 'timestamp'>) => void;
   addGodModeHistory: (item: GodModeHistoryItem) => void;
-  // ← CHANGED: Extended type signature to include metadata pass-through fields
   updateGodModeStats: (updates: {
     totalProcessed?: number;
     successCount?: number;
@@ -195,16 +178,22 @@ interface OptimizerStore {
     lastScanAt?: Date | null;
     nextScanAt?: Date | null;
   }) => void;
-  
-  // Persisted Generated Content (survives navigation)
+
+  // Persisted Generated Content
   generatedContentsStore: GeneratedContentStore;
   setGeneratedContent: (itemId: string, content: GeneratedContentStore[string]) => void;
   removeGeneratedContent: (itemId: string) => void;
-  
+
   // Persisted NeuronWriter Data
   neuronWriterDataStore: NeuronWriterDataStore;
   setNeuronWriterData: (itemId: string, data: NeuronWriterDataStore[string]) => void;
   removeNeuronWriterData: (itemId: string) => void;
+
+  // 🆕 NEW: Persisted Editor Auto-Save Store (Goal #2: robust editor save flow)
+  editedContentsStore: Record<string, string>;
+  setEditedContent: (itemId: string, content: string) => void;
+  removeEditedContent: (itemId: string) => void;
+  clearEditedContents: () => void;
 }
 
 export const useOptimizerStore = create<OptimizerStore>()(
@@ -213,7 +202,7 @@ export const useOptimizerStore = create<OptimizerStore>()(
       // Navigation
       currentStep: 1,
       setCurrentStep: (step) => set({ currentStep: step }),
-      
+
       // Configuration
       config: {
         geminiApiKey: '',
@@ -242,10 +231,10 @@ export const useOptimizerStore = create<OptimizerStore>()(
         targetCountry: 'US',
         targetLanguage: 'en',
       },
-      setConfig: (updates) => set((state) => ({ 
-        config: { ...state.config, ...updates } 
+      setConfig: (updates) => set((state) => ({
+        config: { ...state.config, ...updates }
       })),
-      
+
       // NeuronWriter Projects
       neuronWriterProjects: [],
       setNeuronWriterProjects: (projects) => set({ neuronWriterProjects: projects }),
@@ -253,7 +242,7 @@ export const useOptimizerStore = create<OptimizerStore>()(
       setNeuronWriterLoading: (loading) => set({ neuronWriterLoading: loading }),
       neuronWriterError: null,
       setNeuronWriterError: (error) => set({ neuronWriterError: error }),
-      
+
       // Content Queue
       contentItems: [],
       addContentItem: (item) => set((state) => ({
@@ -282,7 +271,7 @@ export const useOptimizerStore = create<OptimizerStore>()(
         contentItems: state.contentItems.filter((item) => item.id !== id),
       })),
       clearContentItems: () => set({ contentItems: [] }),
-      
+
       // Priority URLs
       priorityUrls: [],
       addPriorityUrl: (url, priority) => set((state) => ({
@@ -295,23 +284,23 @@ export const useOptimizerStore = create<OptimizerStore>()(
         priorityUrls: state.priorityUrls.filter((u) => u.id !== id),
       })),
       clearPriorityUrls: () => set({ priorityUrls: [] }),
-      
+
       // Exclusions
       excludedUrls: [],
       excludedCategories: [],
       setExcludedUrls: (urls) => set({ excludedUrls: urls }),
       setExcludedCategories: (categories) => set({ excludedCategories: categories }),
-      
+
       // Sitemap
       sitemapUrls: [],
       setSitemapUrls: (urls) => set({ sitemapUrls: urls }),
-      
+
       // God Mode
       godModeEnabled: false,
       priorityOnlyMode: false,
       setGodModeEnabled: (enabled) => set({ godModeEnabled: enabled }),
       setPriorityOnlyMode: (enabled) => set({ priorityOnlyMode: enabled }),
-      
+
       // God Mode 2.0 State
       godModeState: DEFAULT_GOD_MODE_STATE,
       setGodModeState: (updates) => set((state) => ({
@@ -326,31 +315,29 @@ export const useOptimizerStore = create<OptimizerStore>()(
               timestamp: new Date(),
               ...item,
             },
-            ...state.godModeState.activityLog.slice(0, 99), // Keep last 100
+            ...state.godModeState.activityLog.slice(0, 99),
           ],
         }
       })),
       addGodModeHistory: (item) => set((state) => ({
         godModeState: {
           ...state.godModeState,
-          history: [item, ...state.godModeState.history.slice(0, 99)], // Keep last 100
+          history: [item, ...state.godModeState.history.slice(0, 99)],
         }
       })),
-      // ← CHANGED: Now accepts and applies metadata fields (cycleCount, sessionStartedAt, etc.)
       updateGodModeStats: (updates) => set((state) => {
         const stats = state.godModeState.stats;
         const newTotal = stats.totalProcessed + (updates.totalProcessed || 0);
         const newSuccess = stats.successCount + (updates.successCount || 0);
         const newError = stats.errorCount + (updates.errorCount || 0);
         const newWords = stats.totalWordsGenerated + (updates.wordCount || 0);
-        
-        // Calculate new average quality score
+
         let newAvgQuality = stats.avgQualityScore;
         if (updates.qualityScore && updates.qualityScore > 0) {
           const totalQuality = stats.avgQualityScore * stats.totalProcessed + updates.qualityScore;
           newAvgQuality = newTotal > 0 ? totalQuality / newTotal : updates.qualityScore;
         }
-        
+
         return {
           godModeState: {
             ...state.godModeState,
@@ -361,7 +348,6 @@ export const useOptimizerStore = create<OptimizerStore>()(
               errorCount: newError,
               avgQualityScore: newAvgQuality,
               totalWordsGenerated: newWords,
-              // ← NEW: Apply metadata fields as absolute values (not deltas) when provided
               ...(updates.cycleCount !== undefined && { cycleCount: updates.cycleCount }),
               ...(updates.sessionStartedAt !== undefined && { sessionStartedAt: updates.sessionStartedAt }),
               ...(updates.lastScanAt !== undefined && { lastScanAt: updates.lastScanAt }),
@@ -370,7 +356,7 @@ export const useOptimizerStore = create<OptimizerStore>()(
           }
         };
       }),
-      
+
       // Persisted Generated Content Store
       generatedContentsStore: {},
       setGeneratedContent: (itemId, content) => set((state) => ({
@@ -380,7 +366,7 @@ export const useOptimizerStore = create<OptimizerStore>()(
         const { [itemId]: _, ...rest } = state.generatedContentsStore;
         return { generatedContentsStore: rest };
       }),
-      
+
       // Persisted NeuronWriter Data Store
       neuronWriterDataStore: {},
       setNeuronWriterData: (itemId, data) => set((state) => ({
@@ -390,6 +376,17 @@ export const useOptimizerStore = create<OptimizerStore>()(
         const { [itemId]: _, ...rest } = state.neuronWriterDataStore;
         return { neuronWriterDataStore: rest };
       }),
+
+      // 🆕 NEW: Persisted Editor Auto-Save Store
+      editedContentsStore: {},
+      setEditedContent: (itemId, content) => set((state) => ({
+        editedContentsStore: { ...state.editedContentsStore, [itemId]: content }
+      })),
+      removeEditedContent: (itemId) => set((state) => {
+        const { [itemId]: _, ...rest } = state.editedContentsStore;
+        return { editedContentsStore: rest };
+      }),
+      clearEditedContents: () => set({ editedContentsStore: {} }),
     }),
     {
       name: 'wp-optimizer-storage',
