@@ -45,6 +45,20 @@ export class SEOHealthScorer {
     const hostname = parsed.hostname.toLowerCase();
     if (hostname === 'localhost' || hostname === '[::1]') return false;
     if (hostname.endsWith('.local') || hostname.endsWith('.internal')) return false;
+
+    // Block IPv6 private/link-local/loopback ranges
+    if (hostname.startsWith('[')) {
+      const ipv6 = hostname.slice(1, -1).toLowerCase();
+      if (
+        ipv6 === '::1' || ipv6 === '::' ||
+        ipv6.startsWith('fc') || ipv6.startsWith('fd') ||
+        ipv6.startsWith('fe8') || ipv6.startsWith('fe9') ||
+        ipv6.startsWith('fea') || ipv6.startsWith('feb')
+      ) {
+        return false;
+      }
+    }
+
     const parts = hostname.split('.').map(Number);
     if (parts.length === 4 && parts.every(n => !isNaN(n))) {
       if (parts[0] === 127 || parts[0] === 10 || parts[0] === 0) return false;
@@ -54,6 +68,7 @@ export class SEOHealthScorer {
     }
     return true;
   }
+
 
   async analyzePage(url: string): Promise<SEOHealthAnalysis> {
     const startTime = Date.now();
