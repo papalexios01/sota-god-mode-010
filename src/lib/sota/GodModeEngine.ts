@@ -120,6 +120,8 @@ export class GodModeEngine {
 
     if (this.options.priorityOnlyMode) {
       this.initializePriorityQueue();
+    } else {
+      this.restoreQueue(); // ← NEW: restore persisted queue from localStorage
     }
 
     await this.mainLoop();
@@ -795,17 +797,65 @@ export class GodModeEngine {
       if (priorityDiff !== 0) return priorityDiff;
       return a.healthScore - b.healthScore;
     });
+    this.persistQueue(); // ← NEW: persist after every sort
   }
 
+    // ← NEW: Queue persistence to survive page refreshes
+  private persistQueue(): void {
+    try {
+      const serializable = this.queue.map(item => ({
+        ...item,
+        addedAt: item.addedAt instanceof Date ? item.addedAt.toISOString() : item.addedAt,
+      }));
+      localStorage.setItem('god_mode_queue', JSON.stringify(serializable));
+    } catch (e) {
+      console.warn('[GodMode] Failed to persist queue:', e);
+    }
+  }
+
+  private restoreQueue(): void {
+    try {
+      const stored = localStorage.getItem('god_mode_queue');
+      if (!stored) return;
+      const items = JSON.parse(stored) as any[];
+      if (!Array.isArray(items) || items.length === 0) return;
+      this.queue = items.map(item => ({
+        ...item,
+        addedAt: new Date(item.addedAt),
+      }));
+      this.sortQueue();
+      this.updateState({ queue: this.queue });
+      this.log('info', `Restored ${this.queue.length} items from persisted queue`);
+    } catch (e) {
+      console.warn('[GodMode] Failed to restore queue:', e);
+    }
+  }
+
+
+
+  // ← CHANGED: Robustness for non-semantic slugs (e.g., /p/12345, /a1b2c3)
   private extractKeyword(url: string): string {
     try {
       const pathname = new URL(url).pathname;
       const slug = pathname.split('/').filter(Boolean).pop() || '';
-      return slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+      const decoded = slug.replace(/-/g, ' ').trim();
+      if (!decoded || /^[a-f0-9]{6,}$/i.test(slug) || /^\d+$/.test(slug)) {
+        const segments = pathname.split('/').filter(Boolean);
+        if (segments.length >= 2) {
+          return segments[segments.length - 2]
+            .replace(/-/g, ' ')
+            .replace(/\b\w/g, l => l.toUpperCase());
+        }
+        return new URL(url).hostname.replace('www.', '');
+      }
+
+      return decoded.replace(/\b\w/g, l => l.toUpperCase());
     } catch {
       return url;
     }
   }
+
 
   private getSlug(url: string): string {
     try {
