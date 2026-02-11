@@ -7,7 +7,6 @@ import {
   Settings, Loader2, FolderOpen, RefreshCw, XCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-// ← CHANGED: Removed duplicate import (was declared twice in original)
 import { getSupabaseConfig, saveSupabaseConfig, clearSupabaseConfig, validateSupabaseConfig } from "@/lib/supabaseClient";
 import { toast } from "sonner";
 import { ensureTableExists, getLastDbCheckError } from "@/lib/api/contentPersistence";
@@ -116,7 +115,6 @@ export function SetupConfig() {
     const key = sbAnonKey.trim();
     const status = validateSupabaseConfig(url, key);
     if (!status.configured) return;
-
     setConfig({ supabaseUrl: url, supabaseAnonKey: key });
     saveSupabaseConfig(url, key);
   };
@@ -157,10 +155,7 @@ export function SetupConfig() {
   };
 
   const handleVerifyWordPress = async () => {
-    if (!config.wpUrl || !config.wpUsername || !config.wpAppPassword) {
-      return;
-    }
-
+    if (!config.wpUrl || !config.wpUsername || !config.wpAppPassword) return;
     setVerifyingWp(true);
     try {
       await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -229,49 +224,12 @@ export function SetupConfig() {
           API Keys
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <InputField
-            label="Google Gemini API Key"
-            value={config.geminiApiKey}
-            onChange={(v) => setConfig({ geminiApiKey: v })}
-            type="password"
-            placeholder="AIza..."
-          />
-          <InputField
-            label="Serper API Key (Required for SOTA Research)"
-            value={config.serperApiKey}
-            onChange={(v) => setConfig({ serperApiKey: v })}
-            type="password"
-            placeholder="Enter Serper key..."
-            required
-          />
-          <InputField
-            label="OpenAI API Key"
-            value={config.openaiApiKey}
-            onChange={(v) => setConfig({ openaiApiKey: v })}
-            type="password"
-            placeholder="sk-..."
-          />
-          <InputField
-            label="Anthropic API Key"
-            value={config.anthropicApiKey}
-            onChange={(v) => setConfig({ anthropicApiKey: v })}
-            type="password"
-            placeholder="sk-ant-..."
-          />
-          <InputField
-            label="OpenRouter API Key"
-            value={config.openrouterApiKey}
-            onChange={(v) => setConfig({ openrouterApiKey: v })}
-            type="password"
-            placeholder="sk-or-..."
-          />
-          <InputField
-            label="Groq API Key"
-            value={config.groqApiKey}
-            onChange={(v) => setConfig({ groqApiKey: v })}
-            type="password"
-            placeholder="gsk_..."
-          />
+          <InputField label="Google Gemini API Key" value={config.geminiApiKey} onChange={(v) => setConfig({ geminiApiKey: v })} type="password" placeholder="AIza..." />
+          <InputField label="Serper API Key (Required for SOTA Research)" value={config.serperApiKey} onChange={(v) => setConfig({ serperApiKey: v })} type="password" placeholder="Enter Serper key..." required />
+          <InputField label="OpenAI API Key" value={config.openaiApiKey} onChange={(v) => setConfig({ openaiApiKey: v })} type="password" placeholder="sk-..." />
+          <InputField label="Anthropic API Key" value={config.anthropicApiKey} onChange={(v) => setConfig({ anthropicApiKey: v })} type="password" placeholder="sk-ant-..." />
+          <InputField label="OpenRouter API Key" value={config.openrouterApiKey} onChange={(v) => setConfig({ openrouterApiKey: v })} type="password" placeholder="sk-or-..." />
+          <InputField label="Groq API Key" value={config.groqApiKey} onChange={(v) => setConfig({ groqApiKey: v })} type="password" placeholder="gsk_..." />
         </div>
       </section>
 
@@ -283,9 +241,7 @@ export function SetupConfig() {
         </h2>
         <div className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Primary Generation Model
-            </label>
+            <label className="block text-sm font-medium text-foreground mb-2">Primary Generation Model</label>
             <select
               value={config.primaryModel}
               onChange={(e) => setConfig({ primaryModel: e.target.value as any })}
@@ -301,9 +257,7 @@ export function SetupConfig() {
 
           {(config.primaryModel === 'openrouter' || config.openrouterApiKey) && (
             <div className="p-4 bg-background/50 border border-border rounded-xl space-y-3">
-              <label className="block text-sm font-medium text-foreground">
-                OpenRouter Model ID
-              </label>
+              <label className="block text-sm font-medium text-foreground">OpenRouter Model ID</label>
               <div className="flex gap-2">
                 <select
                   value={showCustomOpenRouter ? 'custom' : config.openrouterModelId}
@@ -318,427 +272,303 @@ export function SetupConfig() {
               </div>
               {showCustomOpenRouter && (
                 <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={customOpenRouterModel}
-                    onChange={(e) => setCustomOpenRouterModel(e.target.value)}
-                    placeholder="e.g., anthropic/claude-3.5-sonnet:beta"
-                    className="flex-1 px-4 py-2.5 bg-background border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                  <button
-                    onClick={handleCustomOpenRouterSubmit}
-                    className="px-4 py-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors"
-                  >
-                    Set
-                  </button>
+                  <input type="text" value={customOpenRouterModel} onChange={(e) => setCustomOpenRouterModel(e.target.value)} placeholder="e.g., anthropic/claude-3.5-sonnet:beta" className="flex-1 px-4 py-2.5 bg-background border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                  <button onClick={handleCustomOpenRouterSubmit} className="px-4 py-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors">Set</button>
                 </div>
               )}
-              <p className="text-xs text-muted-foreground">
-                Current: <code className="text-primary">{config.openrouterModelId}</code>
-              </p>
+              <p className="text-xs text-muted-foreground">Current: <code className="text-primary">{config.openrouterModelId}</code></p>
             </div>
           )}
 
           {(config.primaryModel === 'groq' || config.groqApiKey) && (
             <div className="p-4 bg-background/50 border border-border rounded-xl space-y-3">
-              <label className="block text-sm font-medium text-foreground">
-                Groq Model ID
-              </label>
+              <label className="block text-sm font-medium text-foreground">Groq Model ID</label>
               <div className="flex gap-2">
                 <select
-                                  {/* Competitor Analysis */}
-                    {neuronData.competitors && neuronData.competitors.length > 0 && (
-                      <div className="bg-card/50 border border-border rounded-xl p-6">
-                        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                          <BarChart3 className="w-5 h-5 text-primary" />
-                          Top Competitors
-                        </h3>
-                        <div className="space-y-3">
-                          {neuronData.competitors.slice(0, 5).map((comp, i) => (
-                            <div key={i} className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg border border-border">
-                              <span className="w-6 h-6 bg-primary/20 text-primary rounded-full flex items-center justify-center text-xs font-bold">
-                                {comp.rank}
-                              </span>
-                              <div className="flex-1 min-w-0">
-                                <div className="font-medium text-foreground truncate">{comp.title}</div>
-                                <a href={comp.url} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary truncate block">
-                                  {comp.url}
-                                </a>
-                              </div>
-                              {comp.word_count && (
-                                <span className="text-xs text-muted-foreground">
-                                  {comp.word_count.toLocaleString()} words
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                  value={showCustomGroq ? 'custom' : config.groqModelId}
+                  onChange={(e) => handleGroqModelChange(e.target.value)}
+                  className="flex-1 px-4 py-2.5 bg-background border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  {GROQ_MODELS.map(m => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                  <option value="custom">Custom Model ID...</option>
+                </select>
+              </div>
+              {showCustomGroq && (
+                <div className="flex gap-2">
+                  <input type="text" value={customGroqModel} onChange={(e) => setCustomGroqModel(e.target.value)} placeholder="e.g., llama3-groq-70b-8192-tool-use-preview" className="flex-1 px-4 py-2.5 bg-background border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                  <button onClick={handleCustomGroqSubmit} className="px-4 py-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors">Set</button>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">Current: <code className="text-primary">{config.groqModelId}</code></p>
+            </div>
+          )}
 
-                    {/* Questions/Ideas */}
-                    {neuronData.ideas && (
-                      <div className="grid md:grid-cols-2 gap-6">
-                        {neuronData.ideas.people_also_ask && neuronData.ideas.people_also_ask.length > 0 && (
-                          <div className="bg-card/50 border border-border rounded-xl p-6">
-                            <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                              <Type className="w-5 h-5 text-primary" />
-                              People Also Ask
-                            </h3>
-                            <div className="space-y-2">
-                              {neuronData.ideas.people_also_ask.slice(0, 8).map((q, i) => (
-                                <div key={i} className="p-2 bg-muted/30 rounded-lg text-sm text-muted-foreground">
-                                  {q.q}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {neuronData.ideas.suggest_questions && neuronData.ideas.suggest_questions.length > 0 && (
-                          <div className="bg-card/50 border border-border rounded-xl p-6">
-                            <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                              <BookOpen className="w-5 h-5 text-primary" />
-                              Suggested Questions
-                            </h3>
-                            <div className="space-y-2">
-                              {neuronData.ideas.suggest_questions.slice(0, 8).map((q, i) => (
-                                <div key={i} className="p-2 bg-muted/30 rounded-lg text-sm text-muted-foreground">
-                                  {q.q}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" checked={config.enableGoogleGrounding} onChange={(e) => setConfig({ enableGoogleGrounding: e.target.checked })} className="w-5 h-5 rounded border-border text-primary focus:ring-primary/50" />
+            <span className="text-sm text-foreground">Enable Google Search Grounding</span>
+          </label>
+        </div>
+      </section>
+
+      {/* Supabase Configuration */}
+      <section className="bg-card border border-border rounded-2xl p-6">
+        <h2 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
+          <Database className="w-5 h-5 text-primary" />
+          Supabase (Publishing + History)
+        </h2>
+        <p className="text-muted-foreground text-sm mb-4">
+          Required for publishing (Edge Function) and syncing history across devices. Uses your <span className="font-medium">anon</span> key only.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <InputField label="Supabase Project URL" value={sbUrl} onChange={(v) => setSbUrl(v)} placeholder="https://xxxx.supabase.co" icon={<Globe className="w-4 h-4" />} />
+          <InputField label="Supabase Anon Key" value={sbAnonKey} onChange={(v) => setSbAnonKey(v)} placeholder="eyJhbGciOi..." icon={<Key className="w-4 h-4" />} type="password" />
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <button onClick={handleSaveSupabase} disabled={!sbStatus.configured} className={cn("px-4 py-2 rounded-xl font-semibold transition-all premium-ring", sbStatus.configured ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg" : "bg-muted text-muted-foreground cursor-not-allowed")}>Save</button>
+          <button onClick={handleReloadAfterSupabase} disabled={!sbStatus.configured} className={cn("px-4 py-2 rounded-xl font-semibold transition-all premium-ring border", sbStatus.configured ? "border-border/60 bg-background/30 hover:bg-background/45" : "border-border/30 bg-background/10 text-muted-foreground cursor-not-allowed")}>Save & Reload</button>
+          <button onClick={handleTestSupabase} className="px-4 py-2 rounded-xl font-semibold transition-all premium-ring border border-border/60 bg-background/10 hover:bg-background/25">Test Connection</button>
+          <button onClick={handleClearSupabase} className="px-4 py-2 rounded-xl font-semibold transition-all premium-ring border border-border/60 bg-background/10 hover:bg-background/25">Clear</button>
+          <div className="ml-auto flex items-center gap-2 text-sm">
+            {sbStatus.configured ? (
+              <span className="inline-flex items-center gap-2 text-emerald-400"><Check className="w-4 h-4" />Configured</span>
+            ) : (
+              <span className="inline-flex items-center gap-2 text-amber-400"><AlertCircle className="w-4 h-4" />Not configured</span>
+            )}
+          </div>
+        </div>
+        {!sbStatus.configured && sbStatus.issues.length > 0 && (
+          <div className="mt-3 text-sm text-muted-foreground">
+            <div className="font-medium text-foreground mb-1">What to fix:</div>
+            <ul className="list-disc pl-5 space-y-1">
+              {sbStatus.issues.map((issue) => (<li key={issue}>{issue}</li>))}
+            </ul>
+          </div>
+        )}
+        <div className="mt-4 text-xs text-muted-foreground">
+          <div className="font-medium text-foreground mb-1">Database schema (recommended)</div>
+          <pre className="whitespace-pre-wrap rounded-xl border border-border/50 bg-background/20 p-3 overflow-auto">
+{`create table if not exists generated_blog_posts (
+  id text primary key,
+  item_id text not null unique,
+  title text not null,
+  seo_title text,
+  content text not null,
+  meta_description text,
+  slug text,
+  primary_keyword text,
+  secondary_keywords text[],
+  word_count int,
+  quality_score jsonb,
+  internal_links jsonb,
+  schema jsonb,
+  serp_analysis jsonb,
+  neuronwriter_query_id text,
+  generated_at timestamptz default now(),
+  model text
+);
+
+-- Enable Row Level Security if you need multi-user. For single-user personal app, you can keep it simple.
+`}</pre>
+        </div>
+      </section>
+
+      {/* WordPress Configuration */}
+      <section className="bg-card border border-border rounded-2xl p-6">
+        <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Globe className="w-5 h-5 text-primary" />
+          WordPress & Site Information
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <InputField label="WordPress Site URL" value={config.wpUrl} onChange={(v) => setConfig({ wpUrl: v })} placeholder="https://your-site.com" icon={<Globe className="w-4 h-4" />} />
+          <InputField label="WordPress Username" value={config.wpUsername} onChange={(v) => setConfig({ wpUsername: v })} placeholder="admin" icon={<User className="w-4 h-4" />} />
+          <InputField label="WordPress Application Password" value={config.wpAppPassword} onChange={(v) => setConfig({ wpAppPassword: v })} type="password" placeholder="xxxx xxxx xxxx xxxx" icon={<Key className="w-4 h-4" />} />
+          <InputField label="Organization Name" value={config.organizationName} onChange={(v) => setConfig({ organizationName: v })} placeholder="Your Company" icon={<Building className="w-4 h-4" />} />
+          <InputField label="Logo URL" value={config.logoUrl} onChange={(v) => setConfig({ logoUrl: v })} placeholder="https://..." icon={<Image className="w-4 h-4" />} />
+          <InputField label="Author Name" value={config.authorName} onChange={(v) => setConfig({ authorName: v })} placeholder="John Doe" icon={<UserCircle className="w-4 h-4" />} />
+        </div>
+        <div className="mt-4 flex items-center gap-3">
+          <a href={config.wpUrl || "#"} target="_blank" rel="noopener noreferrer" className={cn("text-sm text-primary hover:underline flex items-center gap-1", !config.wpUrl && "pointer-events-none opacity-50")}>
+            Learn More <ExternalLink className="w-3 h-3" />
+          </a>
+          <button onClick={handleVerifyWordPress} disabled={verifyingWp || !config.wpUrl || !config.wpUsername || !config.wpAppPassword} className={cn("px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2", wpVerified === true ? "bg-green-500/20 text-green-400 border border-green-500/30" : wpVerified === false ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50")}>
+            {verifyingWp ? "Verifying..." : wpVerified === true ? (<><Check className="w-4 h-4" /> Verified</>) : wpVerified === false ? (<><AlertCircle className="w-4 h-4" /> Failed</>) : "Verify WordPress"}
+          </button>
+        </div>
+      </section>
+
+      {/* NeuronWriter Integration */}
+      <section className="bg-card border border-border rounded-2xl p-6">
+        <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-primary" />
+          NeuronWriter Integration
+        </h2>
+        <label className="flex items-center gap-3 cursor-pointer mb-4">
+          <input type="checkbox" checked={config.enableNeuronWriter} onChange={(e) => setConfig({ enableNeuronWriter: e.target.checked })} className="w-5 h-5 rounded border-border text-primary focus:ring-primary/50" />
+          <span className="text-sm text-foreground">Enable NeuronWriter Integration</span>
+        </label>
+        {config.enableNeuronWriter && (
+          <div className="space-y-4">
+            <InputField label="NeuronWriter API Key" value={config.neuronWriterApiKey} onChange={(v) => setConfig({ neuronWriterApiKey: v })} type="password" placeholder="Enter NeuronWriter key..." />
+            {config.neuronWriterApiKey && config.neuronWriterApiKey.trim().length >= 10 && (
+              <div className="p-4 bg-background/50 border border-border rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                    <FolderOpen className="w-4 h-4 text-primary" />
+                    Select Project
+                  </label>
+                  <button onClick={() => fetchNeuronWriterProjects(config.neuronWriterApiKey)} disabled={neuronWriterLoading} className="text-sm text-primary hover:text-primary/80 flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-primary/10 transition-colors disabled:opacity-50">
+                    <RefreshCw className={cn("w-3.5 h-3.5", neuronWriterLoading && "animate-spin")} />
+                    {neuronWriterLoading ? 'Loading...' : 'Refresh Projects'}
+                  </button>
+                </div>
+                {neuronWriterLoading && (
+                  <div className="flex items-center gap-2.5 p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg">
+                    <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+                    <span className="text-sm text-blue-400">Connecting to NeuronWriter API...</span>
+                  </div>
+                )}
+                {!neuronWriterLoading && neuronWriterError && (
+                  <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                    <div className="flex items-start gap-2.5">
+                      <XCircle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-red-400">Failed to load projects</p>
+                        <p className="text-xs text-red-400/70 mt-0.5 break-words">{neuronWriterError}</p>
+                        <button onClick={() => fetchNeuronWriterProjects(config.neuronWriterApiKey)} className="mt-2 text-xs text-red-300 hover:text-red-200 underline">Try again</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {!neuronWriterLoading && !neuronWriterError && neuronWriterProjects.length > 0 && (
+                  <>
+                    <select
+                      value={config.neuronWriterProjectId}
+                      onChange={(e) => handleProjectSelect(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-background border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    >
+                      <option value="">Select a project...</option>
+                      {neuronWriterProjects.map(project => (
+                        <option key={project.id} value={project.id}>
+                          {project.name} {project.queries_count !== undefined && `(${project.queries_count} queries)`}
+                        </option>
+                      ))}
+                    </select>
+                    {config.neuronWriterProjectId && (
+                      <div className="flex items-center gap-2 text-green-400 text-sm p-2 bg-green-500/5 border border-green-500/15 rounded-lg">
+                        <Check className="w-4 h-4 flex-shrink-0" />
+                        <span>Selected: <strong>{config.neuronWriterProjectName}</strong></span>
                       </div>
                     )}
                   </>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <div className="w-20 h-20 rounded-full bg-muted/30 flex items-center justify-center mb-6">
-                      <Brain className="w-10 h-10 text-muted-foreground" />
+                )}
+                {!neuronWriterLoading && !neuronWriterError && neuronWriterProjects.length === 0 && nwFetchAttempted && (
+                  <div className="p-3 bg-yellow-500/5 border border-yellow-500/20 rounded-lg">
+                    <div className="flex items-start gap-2.5">
+                      <AlertCircle className="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm text-yellow-400">No projects found</p>
+                        <p className="text-xs text-yellow-400/60 mt-0.5">Create a project in NeuronWriter first, or verify your API key is correct.</p>
+                      </div>
                     </div>
-                    <h3 className="text-xl font-bold text-foreground mb-2">NeuronWriter Not Connected</h3>
-                    <p className="text-muted-foreground max-w-md mb-6">
-                      Connect NeuronWriter in the Setup tab to get detailed keyword analysis, term recommendations, and content scoring.
-                    </p>
-                    <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/30 rounded-xl text-primary text-sm">
-                      <TrendingUp className="w-4 h-4" />
-                      Enable NeuronWriter for advanced SEO insights
-                    </div>
+                  </div>
+                )}
+                {!neuronWriterLoading && !neuronWriterError && neuronWriterProjects.length === 0 && !nwFetchAttempted && (
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Click "Refresh Projects" to load your NeuronWriter projects.</span>
                   </div>
                 )}
               </div>
             )}
-          </>
-        )}
-      </div>
-
-      {/* WordPress Publish Modal */}
-      {showPublishModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-2xl w-full max-w-md p-6 shadow-2xl">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
-                <Upload className="w-5 h-5 text-primary" />
-                Publish to WordPress
-              </h3>
-              <button
-                onClick={() => setShowPublishModal(false)}
-                className="p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted/50"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {!isConfigured ? (
-              <div className="text-center py-8">
-                <AlertTriangle className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
-                <h4 className="text-lg font-semibold text-foreground mb-2">WordPress Not Configured</h4>
-                <p className="text-muted-foreground mb-4">
-                  Add your WordPress URL, username, and application password in the Setup tab to enable publishing.
-                </p>
-                <button
-                  onClick={() => setShowPublishModal(false)}
-                  className="px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-muted/80"
-                >
-                  Close
-                </button>
+            {config.neuronWriterApiKey && config.neuronWriterApiKey.trim().length > 0 && config.neuronWriterApiKey.trim().length < 10 && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <AlertCircle className="w-3.5 h-3.5" />
+                <span>API key appears too short. Enter a valid NeuronWriter API key.</span>
               </div>
-            ) : (
-              <>
-                <div className="space-y-4 mb-6">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      Post Title
-                    </label>
-                    <div className="px-4 py-3 bg-muted/30 border border-border rounded-xl text-foreground">
-                      {item.title}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      Publish Status
-                    </label>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setPublishStatus('draft')}
-                        className={cn(
-                          "flex-1 px-4 py-3 rounded-xl font-medium transition-all border",
-                          publishStatus === 'draft'
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50"
-                        )}
-                      >
-                        📝 Draft
-                      </button>
-                      <button
-                        onClick={() => setPublishStatus('publish')}
-                        className={cn(
-                          "flex-1 px-4 py-3 rounded-xl font-medium transition-all border",
-                          publishStatus === 'publish'
-                            ? "bg-green-600 text-white border-green-600"
-                            : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50"
-                        )}
-                      >
-                        🚀 Publish
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-muted/20 border border-border rounded-xl">
-                    <h4 className="text-sm font-medium text-foreground mb-3">What will be published:</h4>
-                    <ul className="text-sm text-muted-foreground space-y-2">
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary">•</span>
-                        <span>Full HTML content ({wordCount.toLocaleString()} words)</span>
-                      </li>
-                      {generatedContent?.seoTitle && (
-                        <li className="flex items-start gap-2">
-                          <span className="text-green-400">•</span>
-                          <span>SEO Title: <span className="font-medium text-foreground">"{generatedContent.seoTitle}"</span></span>
-                        </li>
-                      )}
-                      {generatedContent?.metaDescription && (
-                        <li className="flex items-start gap-2">
-                          <span className="text-green-400">•</span>
-                          <span>Meta Description ({generatedContent.metaDescription.length} chars)</span>
-                        </li>
-                      )}
-                      {sourcePathname && (
-                        <li className="flex items-start gap-2">
-                          <span className="text-blue-400">•</span>
-                          <span>Source URL: <span className="font-mono text-xs">{sourcePathname}</span></span>
-                        </li>
-                      )}
-                      <li className="flex items-start gap-2">
-                        <span className="text-yellow-400">•</span>
-                        <span>WordPress Slug: <span className="font-mono text-foreground">/{effectivePublishSlug}</span></span>
-                      </li>
-                    </ul>
-                    <div className="mt-3 pt-3 border-t border-border">
-                      <p className="text-xs text-muted-foreground">
-                        ✨ SEO title and meta description will be set in Yoast SEO, RankMath, or All-in-One SEO
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setShowPublishModal(false)}
-                    className="flex-1 px-4 py-3 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-all"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handlePublishToWordPress}
-                    disabled={isPublishing}
-                    className="flex-1 px-4 py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {isPublishing ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Publishing...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-4 h-4" />
-                        {publishStatus === 'draft' ? 'Save as Draft' : 'Publish Now'}
-                      </>
-                    )}
-                  </button>
-                </div>
-              </>
             )}
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════
-// Helper Components
-// ═══════════════════════════════════════════════════════
-
-function QualityMetric({ label, value }: { label: string; value: number }) {
-  const getColor = (v: number) => {
-    if (v >= 80) return 'text-green-400';
-    if (v >= 60) return 'text-yellow-400';
-    return 'text-red-400';
-  };
-
-  const formattedValue = Number.isInteger(value) ? value : value.toFixed(1);
-
-  return (
-    <div className="text-center">
-      <div className={cn("text-3xl font-bold", getColor(value))}>{formattedValue}%</div>
-      <div className="text-sm text-muted-foreground mt-1">{label}</div>
-    </div>
-  );
-}
-
-function MetricCard({ label, value, target, ok }: { label: string; value: string | number; target: string; ok?: boolean }) {
-  return (
-    <div className="bg-muted/30 rounded-lg p-4 border border-border">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm text-muted-foreground">{label}</span>
-        {ok !== undefined && (
-          ok ? <CheckCircle className="w-4 h-4 text-green-400" /> : <AlertTriangle className="w-4 h-4 text-yellow-400" />
         )}
-      </div>
-      <div className="text-2xl font-bold text-foreground">{value}</div>
-      <div className="text-xs text-muted-foreground mt-1">Target: {target}</div>
+      </section>
+
+      {/* Geo-Targeting */}
+      <section className="bg-card border border-border rounded-2xl p-6">
+        <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+          <MapPin className="w-5 h-5 text-primary" />
+          Advanced Geo-Targeting
+        </h2>
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" checked={config.enableGeoTargeting} onChange={(e) => setConfig({ enableGeoTargeting: e.target.checked })} className="w-5 h-5 rounded border-border text-primary focus:ring-primary/50" />
+          <span className="text-sm text-foreground">Enable Geo-Targeting for Content</span>
+        </label>
+        {config.enableGeoTargeting && (
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Target Country</label>
+              <select value={config.targetCountry} onChange={(e) => setConfig({ targetCountry: e.target.value })} className="w-full px-4 py-2.5 bg-background border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <option value="US">United States</option>
+                <option value="UK">United Kingdom</option>
+                <option value="CA">Canada</option>
+                <option value="AU">Australia</option>
+                <option value="DE">Germany</option>
+                <option value="FR">France</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Target Language</label>
+              <select value={config.targetLanguage} onChange={(e) => setConfig({ targetLanguage: e.target.value })} className="w-full px-4 py-2.5 bg-background border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <option value="en">English</option>
+                <option value="es">Spanish</option>
+                <option value="de">German</option>
+                <option value="fr">French</option>
+              </select>
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
 
-function ScoreCard({ label, value, percentage }: { label: string; value: string | number; percentage: number }) {
+function InputField({
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder,
+  icon,
+  required,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  placeholder?: string;
+  icon?: React.ReactNode;
+  required?: boolean;
+}) {
   return (
-    <div className="bg-card/50 rounded-lg p-4 border border-border">
-      <div className="text-sm text-muted-foreground mb-2">{label}</div>
-      <div className="text-xl font-bold text-foreground mb-2">{value}</div>
-      <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-        <div 
+    <div>
+      <label className="block text-sm font-medium text-foreground mb-2">
+        {label}
+        {required && <span className="text-red-400 ml-1">*</span>}
+      </label>
+      <div className="relative">
+        {icon && (
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">{icon}</div>
+        )}
+        <input
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
           className={cn(
-            "h-full rounded-full transition-all",
-            percentage >= 80 ? "bg-green-500" : percentage >= 50 ? "bg-yellow-500" : "bg-red-500"
+            "w-full px-4 py-2.5 bg-background border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50",
+            icon && "pl-10"
           )}
-          style={{ width: `${Math.min(100, percentage)}%` }}
         />
       </div>
     </div>
   );
 }
-
-// ═══════════════════════════════════════════════════════
-// Helper Functions for NeuronWriter Terms
-// ═══════════════════════════════════════════════════════
-
-function countTermsUsed(terms: any[] | undefined, content: string): number {
-  if (!terms) return 0;
-  return terms.filter(t => {
-    const regex = new RegExp(t.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-    return content.match(regex);
-  }).length;
-}
-
-function countTermsUsedByType(terms: any[] | undefined, type: string, content: string): number {
-  if (!terms) return 0;
-  return terms.filter(t => t.type === type).filter(t => {
-    const regex = new RegExp(t.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-    return content.match(regex);
-  }).length;
-}
-
-function TermRowNeuron({ term, content }: { term: { term: string; type: string; weight: number; frequency: number; usage_pc?: number; sugg_usage?: [number, number] }; content: string }) {
-  const regex = new RegExp(term.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-  const matches = content.match(regex);
-  const count = matches?.length || 0;
-  const isUsed = count > 0;
-  const suggestedMin = term.sugg_usage?.[0] || 1;
-  const suggestedMax = term.sugg_usage?.[1] || 3;
-  const isOptimal = count >= suggestedMin && count <= suggestedMax;
-
-  return (
-    <div className={cn(
-      "flex items-center justify-between p-2 rounded-lg transition-colors",
-      isOptimal ? "bg-green-500/10" : isUsed ? "bg-yellow-500/10" : "bg-muted/30"
-    )}>
-      <div className="flex-1 min-w-0">
-        <span className={cn(
-          "text-sm font-medium",
-          isOptimal ? "text-green-400" : isUsed ? "text-yellow-400" : "text-muted-foreground"
-        )}>
-          {term.term}
-        </span>
-        {term.usage_pc !== undefined && (
-          <span className="ml-2 text-xs text-muted-foreground">
-            ({term.usage_pc}% of competitors)
-          </span>
-        )}
-      </div>
-      <div className="flex items-center gap-2">
-        <span className={cn(
-          "px-2 py-0.5 rounded text-xs font-medium",
-          isOptimal ? "bg-green-500/20 text-green-400" : 
-          isUsed ? "bg-yellow-500/20 text-yellow-400" : "bg-muted text-muted-foreground"
-        )}>
-          {count}x / {suggestedMin}-{suggestedMax}
-        </span>
-        {isOptimal && <CheckCircle className="w-3.5 h-3.5 text-green-400" />}
-      </div>
-    </div>
-  );
-}
-
-function KeywordDensityIndicator({ content, keyword }: { content: string; keyword: string }) {
-  const words = content.split(/\s+/).length;
-  const regex = new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-  const matches = content.match(regex);
-  const count = matches?.length || 0;
-  const density = words > 0 ? ((count / words) * 100).toFixed(1) : '0';
-  const isGood = parseFloat(density) >= 0.5 && parseFloat(density) <= 2.5;
-
-  return (
-    <div className={cn(
-      "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm",
-      isGood ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"
-    )}>
-      {isGood ? <CheckCircle className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
-      <span>{count}x ({density}%)</span>
-    </div>
-  );
-}
-
-function formatHtml(html: string): string {
-  let formatted = html;
-  let indent = 0;
-  const tab = '  ';
-
-  formatted = formatted.replace(/></g, '>\n<');
-  
-  const lines = formatted.split('\n');
-  const result = lines.map(line => {
-    line = line.trim();
-    if (!line) return '';
-    
-    if (line.match(/^<\/\w/)) {
-      indent = Math.max(0, indent - 1);
-    }
-    
-    const indented = tab.repeat(indent) + line;
-    
-    if (line.match(/^<\w[^>]*[^\/]>.*$/) && !line.match(/^<(br|hr|img|input|meta|link)/)) {
-      if (!line.match(/<\/\w+>$/)) {
-        indent++;
-      }
-    }
-    
-    return indented;
-  });
-
-  return result.filter(Boolean).join('\n');
-}
-
