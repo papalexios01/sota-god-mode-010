@@ -23,6 +23,29 @@ export function timingMiddleware(req: Request, res: Response, next: NextFunction
   next();
 }
 
+/**
+ * Extract the real client IP from behind reverse proxies (Cloudflare, Vercel, nginx).
+ * Falls back to req.ip if no proxy headers are present.
+ */
+function getClientIp(req: Request): string {
+  // Cloudflare
+  const cfIp = req.header("cf-connecting-ip");
+  if (cfIp) return cfIp;
+
+  // Standard proxy header — take the FIRST (leftmost) IP, which is the original client
+  const forwarded = req.header("x-forwarded-for");
+  if (forwarded) {
+    const first = forwarded.split(",")[0]?.trim();
+    if (first) return first;
+  }
+
+  // Vercel / nginx
+  const realIp = req.header("x-real-ip");
+  if (realIp) return realIp;
+
+  return req.ip || "unknown";
+}
+
 export function basicRateLimit(options?: { windowMs?: number; max?: number }) {
   const windowMs = options?.windowMs ?? 60_000;
   const max = options?.max ?? 60;
@@ -30,7 +53,7 @@ export function basicRateLimit(options?: { windowMs?: number; max?: number }) {
   const hits = new Map<string, { count: number; resetAt: number }>();
 
   return (req: Request, res: Response, next: NextFunction) => {
-    const key = req.ip || "unknown";
+    const key = getClientIp(req);
     const now = Date.now();
 
     const entry = hits.get(key);
